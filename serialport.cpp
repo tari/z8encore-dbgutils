@@ -1,6 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004 Zilog, Inc.
  *
- * $Id: serialport.cpp,v 1.4 2004/12/01 01:26:49 jnekl Exp $
+ * $Id: serialport.cpp,v 1.5 2005/01/19 21:00:13 jnekl Exp $
  *
  * This is a universial serial port api. It will work on
  * both unix and windows systems.
@@ -1539,7 +1539,7 @@ bool serialport::error(void)
 
 	ClearCommError(fdes, &err, &stat);
 
-	if(err & CE_BREAK) {
+	if(err & CE_BREAK || stat.cbInQue || stat.cbOutQue) {
 		return 1;
 	}
 
