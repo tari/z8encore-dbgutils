@@ -86,7 +86,7 @@ ifdef COMSPEC
 else
   OSTYPE:=$(shell uname)
   ifeq "$(findstring Sun,$(OSTYPE))" "Sun"
-    LIBS += -lresolv -Xlinker -Bstatic -lreadline -Xlinker -Bdynamic -ltermcap -lsocket  
+    LIBS += -lresolv -lreadline -ltermcap -lsocket -lnsl
   else
     ifeq "$(findstring Linux,$(OSTYPE))" "Linux"
       LIBS += -lreadline -ltermcap 
@@ -95,7 +95,7 @@ else
 endif
  
 ez8mon-static: $(OBJS) version.o libocd.a libport.a
-	$(CXX) $(LDFLAGS) -o$@ $^ $(LIBS)
+	$(CXX) $(LDFLAGS) -o$@ $^ $(LIBS) -static-libgcc
 
 ez8mon: $(OBJS) version.o libocd.a libport.a
 	$(CXX) $(LDFLAGS) -o$@ $^ $(LIBS)
@@ -115,14 +115,17 @@ endurance: endurance.o version.o libocd.a libport.a
 md5: md5c.o mddriver.o
 	$(LD) $(LDFLAGS) -o$@ $^
 
+ramtest: ramtest.o version.o libocd.a libport.a progress.o
+	$(CXX) $(LDFLAGS) -o$@ $^ $(LIBS)
+
 #################################################################
 
 #clean: clean-profile
 #clean: clean-coverage
 clean:
 	$(RM) *.o *.a *.so depend core core.* a.out \
-	    ez8mon flashutil crcgen gencrctable endurance md5 \
-	    ez8mon.exe flashutil.exe crcgen.exe
+	    ez8mon flashutil crcgen gencrctable endurance ramtest md5 \
+	    ez8mon.exe flashutil.exe crcgen.exe ramtest.exe
 
 clean-profile: 
 	$(RM) gmon.out
