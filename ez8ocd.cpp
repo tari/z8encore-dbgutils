@@ -1,6 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004 Zilog, Inc.
  *
- * $Id: ez8ocd.cpp,v 1.2 2004/12/01 01:26:49 jnekl Exp $
+ * $Id: ez8ocd.cpp,v 1.3 2004/12/01 22:42:33 jnekl Exp $
  *
  * This implements the low level functions of the Z8 Encore
  * On-Chip Debugger.
@@ -30,6 +30,7 @@ ez8ocd::ez8ocd()
 {
 	log_proto = NULL;
 	dbg = NULL;
+	cache = 0;
 	mtu = 0;
 	callback = NULL;
 
@@ -330,6 +331,7 @@ void ez8ocd::new_command(void)
 {
 	if(dbg->error()) {
 		dbg->reset();
+		cache = 0;
 	}
 }
 

@@ -1,6 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004 Zilog, Inc.
  *
- * $Id: ez8dbg.h,v 1.2 2004/12/01 01:26:49 jnekl Exp $
+ * $Id: ez8dbg.h,v 1.3 2004/12/01 22:42:33 jnekl Exp $
  *
  * This implements a debugger api for the ez8 on-chip debugger.
  */
@@ -43,7 +43,6 @@ private:
 	ez8dbg(ez8dbg &);	
 
 	/* cached data */
-	int cache;
 	uint16_t dbgrev;
 	uint8_t dbgctl;
 	uint8_t dbgstat;

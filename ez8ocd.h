@@ -1,6 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004 Zilog, Inc.
  *
- * $Id: ez8ocd.h,v 1.2 2004/12/01 01:26:49 jnekl Exp $
+ * $Id: ez8ocd.h,v 1.3 2004/12/01 22:42:33 jnekl Exp $
  *
  * This class implements the basic ez8 on-chip debugger 
  * commands.
@@ -45,6 +45,9 @@ class ez8ocd
 private:
 	/* Prohibit use of copy constructor */
 	ez8ocd(ez8ocd &);
+
+protected:
+	int cache;
 
 public:
 	/* polymorphic class for ocd link */

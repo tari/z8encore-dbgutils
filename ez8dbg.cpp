@@ -1,6 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004 Zilog, Inc.
  *
- * $Id: ez8dbg.cpp,v 1.3 2004/12/01 01:26:49 jnekl Exp $
+ * $Id: ez8dbg.cpp,v 1.4 2004/12/01 22:42:33 jnekl Exp $
  *
  * This implements the debugger api. It makes calls to the
  * lower level ez8ocd to do all its work.
@@ -709,6 +709,9 @@ void ez8dbg::run_clks(uint16_t clks)
  * This function returns zero if the device is stopped (in debug
  * mode). If the part is running, it returns 1, if an error occurs,
  * it returns -1.
+ *
+ * try/catch errors when checking if running in case a clock 
+ * switch occurs.
  */
 
 int ez8dbg::isrunning(void)
@@ -716,13 +719,29 @@ int ez8dbg::isrunning(void)
 	if(cache & DBGCTL_CACHED) {
 		if(dbgctl & DBGCTL_DBG_MODE) {
 			return 0;
-		} else if(!ez8ocd::rd_ack()) {
-			return 1;
+		} else {
+			try {
+				if(!ez8ocd::rd_ack()) {
+					return 1;
+				}
+			} catch(char *err1) {
+				ez8ocd::reset_link();
+			}
 		}
 	}
  
 	cache &= ~DBGCTL_CACHED;
-	cache_dbgctl();
+	try {
+		cache_dbgctl();
+	} catch(char *err1) {
+		ez8ocd::reset_link();
+		try {
+			cache_dbgctl();
+		} catch(char *err2) {
+			throw err1;
+		}
+	}
+
 	if(dbgctl & DBGCTL_DBG_MODE) {
 		if(tbreak) {
 			remove_breakpoint(tbreak);
