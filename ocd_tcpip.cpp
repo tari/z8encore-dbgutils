@@ -1,6 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004 Zilog, Inc.
  *
- * $Id: ocd_tcpip.cpp,v 1.1 2004/08/03 14:23:48 jnekl Exp $
+ * $Id: ocd_tcpip.cpp,v 1.2 2004/08/06 14:41:54 jnekl Exp $
  *
  * This is the tcpip ocd connection.
  */
@@ -624,7 +624,7 @@ void ocd_tcpip::reset(void)
 	} while(!ptr);
 
 	if(!strcasecmp(ptr, "+OK")) {
-		ptr = strtok(buff, " \t\r\n");
+		ptr = strtok(NULL, " \t\r\n");
 		if(ptr) {
 			open = 0;
 			strncpy(err_msg,
@@ -636,7 +636,7 @@ void ocd_tcpip::reset(void)
 		up = 1;
 		return;
 	} else if(!strcasecmp(ptr, "-ERR")) {
-		ptr = strtok(buff, " \t\r\n");
+		ptr = strtok(NULL, " \t\r\n");
 		if(ptr) {
 			open = 0;
 			strncpy(err_msg,
@@ -972,6 +972,7 @@ void ocd_tcpip::write(const uint8_t *data, size_t size)
 	} while(!ptr);
 
 	if(!strcasecmp(ptr, "+OK")) {
+		ptr = strtok(NULL, " \t\r\n");
 		if(ptr) {
 			open = 0;
 			strncpy(err_msg,
@@ -983,7 +984,7 @@ void ocd_tcpip::write(const uint8_t *data, size_t size)
 		return;
 	} else if(!strcasecmp(ptr, "-ERR")) {
 		up = 0;
-		ptr = strtok(buff, " \t\r\n");
+		ptr = strtok(NULL, " \t\r\n");
 		if(ptr) {
 			open = 0;
 			strncpy(err_msg,
