@@ -42,7 +42,7 @@ LIBOBJS = serialport.o ocd_serial.o ocd_parport.o ocd_tcpip.o \
 	  dump.o md5c.o xmalloc.o err_msg.o timer.o
 
 OBJS = ez8mon.o cfg.o setup.o monitor.o trace.o disassembler.o \
-	opcodes.o server.o
+	opcodes.o server.o tclmon.o
 
 #################################################################
 
@@ -50,7 +50,7 @@ all: libocd.a ez8mon flashutil crcgen
 .PHONY: all
 
 depend:
-	$(CC) $(CPPFLAGS) -M *.cpp *.c >depend
+	$(CC) $(CPPFLAGS) -MM *.cpp *.c >depend
 
 ifneq ($(MAKECMDGOALS),clean)
 include	depend
@@ -83,8 +83,10 @@ endif
 
 ifdef COMSPEC
   LIBS += -lreadline -lws2_32 -liberty
+  LIBS += -ltcl84
 else
   OSTYPE:=$(shell uname)
+  LIBS += -ltcl8.4
   ifeq "$(findstring Sun,$(OSTYPE))" "Sun"
     LIBS += -lresolv -lreadline -ltermcap -lsocket -lnsl
   else
@@ -93,6 +95,7 @@ else
     endif
   endif
 endif
+
  
 ez8mon-static: $(OBJS) version.o libocd.a libport.a
 	$(CXX) $(LDFLAGS) -o$@ $^ $(LIBS) -static-libgcc

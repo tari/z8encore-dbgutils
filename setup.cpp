@@ -1,6 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004 Zilog, Inc.
  *
- * $Id: setup.cpp,v 1.4 2004/12/01 01:26:49 jnekl Exp $
+ * $Id: setup.cpp,v 1.5 2005/01/19 20:58:51 jnekl Exp $
  *
  * This file initializes the debugger enviroment by reading
  * settings from a config file and by parsing command-line
@@ -108,6 +108,8 @@ int repeat = 0x40;
 int show_times = 0;
 int esc_key = 0;
 int testmenu = 0;
+
+char *tcl_script = NULL;
 
 /* option values to load upon reset */
 struct option_t {
@@ -328,10 +330,10 @@ printf("                               program/erase oprations\n");
 printf("  -s [:PORT]                 run as tcp/ip server\n");
 printf("  -n [SERVER][:PORT]         connect to tcp/ip server\n");
 printf("  -m TEXT                    calculate and display md5hash of text\n");
-
 printf("  -d                         dump raw ocd communication\n");
 printf("  -D                         disable memory cache\n");
 printf("  -T                         display diagnostic run times\n");
+printf("  -S SCRIPT                  run tcl script\n");
 printf("\n");
 	
 return;
@@ -359,7 +361,7 @@ void parse_options(int argc, char **argv)
 		progname = s+1;
 	}
 
-	while((c = getopt(argc, argv, "hldDTp:b:t:c:snm:v")) != EOF) {
+	while((c = getopt(argc, argv, "hldDTp:b:t:c:snm:vS:")) != EOF) {
 		switch(c) {
 		case '?':
 			printf("Try '%s -h' for more information.\n", 
@@ -429,6 +431,9 @@ void parse_options(int argc, char **argv)
 		case 'v':
 			verbose++;
 			break;
+		case 'S':
+			tcl_script = optarg;
+			break;
 		default:
 			abort();
 		}
@@ -455,7 +460,7 @@ void parse_options(int argc, char **argv)
 		optind++;
 	}
 
-	if(optind < argc) {
+	if(!tcl_script && optind < argc) {
 		printf("%s: too many arguments.\n", progname);
 		printf("Try '%s -h' for more information.\n", progname);
 		exit(EXIT_FAILURE);

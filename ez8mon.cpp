@@ -1,6 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004 Zilog, Inc.
  *
- * $Id: ez8mon.cpp,v 1.1 2004/08/03 14:23:48 jnekl Exp $
+ * $Id: ez8mon.cpp,v 1.2 2005/01/19 20:58:51 jnekl Exp $
  *
  * This is the debugger program entry point. Initialize environment,
  * then call main command loop.
@@ -18,6 +18,8 @@ const char *banner = "Z8 Encore! command line debugger";
 extern int init(int, char **);
 extern int finish(void);
 extern int command_loop(void);
+extern int exec_tcl(char *, int, char **);
+extern char *tcl_script;
 
 int main(int argc, char **argv)
 {
@@ -29,9 +31,16 @@ int main(int argc, char **argv)
 			return EXIT_FAILURE;
 		}
 
-		err = command_loop();
-		if(err) {
-			return EXIT_FAILURE;
+		if(tcl_script) {
+			err = exec_tcl(tcl_script, argc, argv);
+			if(err) {
+				return EXIT_FAILURE;
+			}
+		} else {
+			err = command_loop();
+			if(err) {
+				return EXIT_FAILURE;
+			}
 		}
 
 		err = finish();
