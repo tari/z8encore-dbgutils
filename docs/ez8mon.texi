@@ -53,6 +53,7 @@ retained in all documents and source code.
 * Connecting to the Device::  Starting the debugger and connecting 
                                 to a target.
 * Commands::                  Debugger commands.
+* Tcl Interface::             Tcl scripting interface
 @end menu
 
 
@@ -409,6 +410,8 @@ Z8 Encore! command line debugger.
   -n [SERVER][:PORT]         connect to tcp/ip server
   -m TEXT                    calculate and display md5hash of text
   -d                         dump raw ocd communication
+  -D                         disable memory cache
+  -S SCRIPT                  run tcl script
 
 @end group
 @end example
@@ -458,6 +461,16 @@ connections.
 @item -d
 This will display the raw OCD communication as the debugger operates.
 
+@item -D
+This option will disable the use of the internal memory cache.
+
+@item -S SCRIPT 
+This option will invoke the Tcl interpreter and execute SCRIPT.
+Additional arguments passed on the command line will be passed to the
+script. Option arguments (arguments that begin with a hyphen '-') can be
+passed to the script by stopping option processing using double hyphens
+'--'. Otherwise all remaining options will be interpreted by ez8mon and
+will not be passed to the tcl script.
 @end table
 
 
@@ -1128,6 +1141,306 @@ Are you sure [y/n] ? y
 To avoid accidently exiting the program, this command will prompt you
 if you are sure before actually exiting.
 
+@node Tcl Interface
+@chapter Tcl Interface
+
+The @command{ez8mon} utility includes a tcl interpreter. This tcl
+interpreter can be used to execute debugging commands from scripts.
+
+@menu
+* Running Tcl::                Invoking the tcl interpreter
+* Tcl Syntax::                 Tcl language
+* Tcl Dbg Commands::           Encore debugging tcl commands
+@end menu
+
+@node Running Tcl
+@section Running Tcl
+
+The tcl interpreter is started using the @command{-S SCRIPT} option on
+the commandline when invoking @command{ez8mon}. The following example
+executes the tcl script @file{script.tcl}.
+
+@example
+ez8mon -S script.tcl
+@end example
+
+When executing a tcl script, the @command{ez8mon} utility will connect
+to the Z8 Encore device as it normally would. There is no need to
+specify a serial port, baudrate, or clock frequency in the tcl script.
+All these parameters are taken from the @file{ez8mon.cfg} file or
+command-line options as they do during normal operation.
+
+The tcl interpreter can be run interactively, taking its input from
+@file{stdin} by specifying @file{-} for the script name.
+
+@example
+ez8mon -S -
+@end example
+
+When running a tcl script, the script gets its arguments from the
+command line. 
+
+@example
+ez8mon -S script.tcl arg1 arg2 arg3
+@end example
+
+The number of arguments and argument values are available in the
+standard tcl variables @var{$argc} and @var{$argv}. The @var{$argv}
+variable is a tcl list with each argument as an element. The name of the
+script being executed is in the the tcl variable @var{$argv0}.
+
+The order of options to @command{ez8mon} does not matter.  Therefore,
+all arguments that begin with hyphens '-' are processed as options to
+@command{ez8mon}. The first non-option argument stops option processing.
+Option processing can also be stopped with the double hyphen '--'.
+Arguments that being with a hyphen after the double hyphen will be
+passed to the tcl script.
+
+In the following example, the option @command{-b 57600} is interpreted
+by @command{ez8mon} and the @command{-b arg1} arguments are passed to
+the tcl script.
+
+@example
+ez8mon -S script.tcl -b 57600 -- -b arg1
+@end example
+
+When the tcl script is running, the device is stopped and in debug mode.
+Instructions are not executed unless the @command{dbg_run} command is
+called.  When the tcl script exits, the device is taken out of debug
+mode and the device will resume instruction execution.
+
+@node Tcl Syntax
+@section Tcl Syntax
+
+The tcl interpreter implements the tcl language.  Documentation and
+syntax of the tcl language is available from the tcl/tk developers
+website at @url{http://www.tcl.tk}.
+
+@node Tcl Dbg Commands
+@section Tcl Dbg Commands
+
+Several commands are registered with the tcl interpreter during startup
+to make use of the Z8 Encore debugging facilities. These are summarized
+in the following table.
+
+@table @code
+@item dbg_rd_id
+Read revision identifier.
+
+@item dbg_reset_link
+Reset communiation link.
+
+@item dbg_reset_chip
+Reset Z8 Encore device.
+
+@item dbg_ld_hexfile
+Load an intel hexfile into flash memory.
+
+@item dbg_run
+Run until breakpoint reached.
+
+@item dbg_rd_pc
+Read program counter.
+
+@item dbg_wr_pc
+Write program counter.
+
+@item dbg_rd_reg
+Read register.
+
+@item dbg_wr_reg
+Write register.
+
+@item dbg_rd_regs
+Read registers.
+
+@item dbg_wr_regs
+Write registers.
+
+@item dbg_rd_mem
+Read memory.
+
+@item dbg_wr_mem
+Write memory.
+
+@end table
+
+@menu
+* dbg_rd_id::                  Read revision identifier
+* dbg_reset_link::             Reset communication link
+* dbg_reset_chip::             Reset Z8 Encore chip
+* dbg_ld_hexfile::             Load an intel hexfile
+* dbg_run::                    Run until breakpoint
+* dbg_rd_pc::                  Read program counter
+* dbg_wr_pc::                  Write program counter
+* dbg_rd_reg::                 Read register
+* dbg_wr_reg::                 Write register
+* dbg_rd_regs::                Read registers
+* dbg_wr_regs::                Write registers
+* dbg_rd_mem::                 Read memory
+* dbg_wr_mem::                 Write memory
+@end menu
+
+@node dbg_rd_id
+@subsection dbg_rd_id
+
+The @samp{dbg_rd_id} command reads the device revision identifier. The
+identifier will be returned as an integer.
+
+@example
+set revid [ dbg_rd_id ]
+puts [ format "%04x" $revid ]
+@end example
+
+@node dbg_reset_link
+@subsection dbg_reset_link
+
+The @samp{dbg_reset_link} will reset the communication link to the
+Z8 Encore device. A serial break is sent, followed by the auto-baud
+character.
+
+@example
+dbg_reset_link
+@end example
+
+@node dbg_reset_chip
+@subsection dbg_reset_chip
+
+The @samp{dbg_reset_chip} command will reset the Z8 Encore device. 
+
+@example
+dbg_reset_chip
+@end example
+
+@node dbg_ld_hexfile
+@subsection dbg_ld_hexfile filename
+
+The @samp{dbg_ld_hexfile} command will read data from the intel hexfile
+specified by filename and write this data to the Z8 Encore device. The
+@samp{dbg_ld_hexfile} command will erase memory, program the device, and
+reset the Z8 Encore device once programming is complete.
+
+@example
+set filename "hexfile.ihx"
+dbg_ld_hexfile $filename
+@end example
+
+@node dbg_run
+@subsection dbg_run
+
+The @samp{dbg_run} command will cause the Z8 Encore device to execute
+instructions until the CPU reaches a BRK instruction. The @samp{dbg_run}
+command will return once a BRK instruction has been reached.
+
+@example
+dbg_run
+@end example
+
+@node dbg_rd_pc
+@subsection dbg_rd_pc
+
+The @samp{dbg_rd_pc} command will read the current program counter
+value. The program counter value is returned as an integer.
+
+@example
+set pc [ dbg_rd_pc ]
+puts [ format "%04x" $pc ]
+@end example
+
+@node dbg_wr_pc
+@subsection dbg_wr_pc program_counter
+
+The @samp{dbg_wr_pc} command will write the value to the program
+counter. 
+
+@example
+set pc 0x0100
+dbg_wr_pc $pc
+@end example
+
+@node dbg_rd_reg
+@subsection dbg_rd_reg address 
+
+The @samp{dbg_rd_reg} command will read one byte of data from the
+register file at the specified address. The value is returned as an
+integer. If reading a block of memory from the register file, it is
+faster to use the @samp{dbg_rd_regs} command.
+
+@example
+set addr 0x000
+set data [ dbg_rd_reg $addr ]
+puts [ format "%02x" $data ]
+@end example
+
+@node dbg_wr_reg
+@subsection dbg_wr_reg address data
+
+The @samp{dbg_wr_reg} command will write one byte of data to the
+register file at the specified address. If writing a block of memory to
+the register file, it is faster to use the @samp{dbg_wr_regs} command.
+
+@example
+set addr 0x000
+set data 0xa5
+dbg_wr_reg $addr $data
+@end example
+
+@node dbg_rd_regs
+@subsection dbg_rd_regs address size
+
+The @samp{dbg_rd_regs} command will read a block of data from the
+register file at the specified address. The data is returned as a binary
+byte array.
+
+@example
+set addr 0x000
+set size 8
+set data [ dbg_rd_regs $addr $size ]
+binary scan $data "H*" hexstr
+puts $hexstr
+@end example
+
+@node dbg_wr_regs
+@subsection dbg_wr_regs address data
+
+The @samp{dbg_wr_regs} command will write a block of data to the
+register file at the specified address. The data to be written should be
+specified as a binary byte array.
+
+@example
+set addr 0x000
+set mylist [ list 0x01 0x23 0x45 0x67 0x89 0xab 0xcd 0xef ]
+set data [ binary format "c*" $mylist ]
+dbg_wr_regs $addr $data
+@end example
+
+@node dbg_rd_mem
+@subsection dbg_rd_mem address size
+
+The @samp{dbg_rd_mem} command will read a block of mem from the device
+at the specified address. The data is returned as a binary byte array.
+
+@example
+set addr 0x0800
+set size 8
+set data [ dbg_rd_mem $addr $size ]
+binary scan $data "H*" hexstr
+puts $hexstr
+@end example
+
+@node dbg_wr_mem
+@subsection dbg_wr_mem address data
+
+The @samp{dbg_wr_mem} command will write a block of data to memory at
+the specified address. The data to be written should be specified as a
+binary byte array. This routine will erase and program the appropriate
+memory locations to complete the write operation.
+
+@example
+set addr 0x0800
+set data [ binary format "a*" "test string" ]
+dbg_wr_mem $addr $data
+@end example
 
 @c @node Index
 @c @unnumbered Index
