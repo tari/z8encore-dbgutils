@@ -118,14 +118,18 @@ md5: md5c.o mddriver.o
 ramtest: ramtest.o version.o libocd.a libport.a progress.o
 	$(CXX) $(LDFLAGS) -o$@ $^ $(LIBS)
 
+flashtool: flashtool.o version.o libocd.a libport.a 
+	$(CXX) $(LDFLAGS) -o$@ $^ $(LIBS)
+
 #################################################################
 
 #clean: clean-profile
 #clean: clean-coverage
 clean:
 	$(RM) *.o *.a *.so depend core core.* a.out \
-	    ez8mon flashutil crcgen gencrctable endurance ramtest md5 \
-	    ez8mon.exe flashutil.exe crcgen.exe ramtest.exe
+	    ez8mon flashutil crcgen gencrctable endurance \
+	    flashtool ramtest md5 \
+	    *.exe *.zip
 
 clean-profile: 
 	$(RM) gmon.out
