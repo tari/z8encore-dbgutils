@@ -1,6 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004 Zilog, Inc.
  *
- * $Id: timer.h,v 1.1 2004/08/03 14:23:48 jnekl Exp $
+ * $Id: timer.h,v 1.2 2004/08/03 14:58:09 jnekl Exp $
  *
  * Functions for dealing with time.
  */
@@ -12,10 +12,15 @@
 extern "C" { 
 #endif
 
+#ifndef	_WIN32
 struct timer {
 	struct timeval start;
 	struct timeval stop;
 };
+#else	/* _WIN32 */
+struct timer {
+};
+#endif	/* _WIN32 */
 
 void timerstart(struct timer *);
 void timerstop(struct timer *);

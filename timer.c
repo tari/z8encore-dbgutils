@@ -1,6 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004 Zilog, Inc.
  *
- * $Id: timer.c,v 1.1 2004/08/03 14:23:48 jnekl Exp $
+ * $Id: timer.c,v 1.2 2004/08/03 14:58:09 jnekl Exp $
  *
  * Functions for dealing with time.
  */
@@ -18,18 +18,21 @@ void difftimeval(
 	struct timeval *elapsed
 )
 {
+#ifndef	_WIN32
 	elapsed->tv_sec = end->tv_sec - start->tv_sec;
 	elapsed->tv_usec = end->tv_usec - start->tv_usec;
 	if(elapsed->tv_usec < 0) {
 		elapsed->tv_sec--;
 		elapsed->tv_usec += 1000000;
 	}
+#endif
 }
 
 #define	STRSIZE	16
 
 char *timevalstr(struct timeval *t)
 {
+#ifndef	_WIN32
 	long hours, minutes, seconds, ms;
 	static char s[STRSIZE];
 
@@ -51,29 +54,40 @@ char *timevalstr(struct timeval *t)
 	}
 
 	return s;
+#else
+	return "";
+#endif
 }
 
 void timerstart(struct timer *t)
 {
+#ifndef	_WIN32
 	if(gettimeofday(&t->start, NULL)) {
 		memset(&t->start, 0, sizeof(t->start));
 	}
+#endif
 }
 
 void timerstop(struct timer *t)
 {
+#ifndef	_WIN32
 	if(gettimeofday(&t->stop, NULL)) {
 		memset(&t->stop, 0, sizeof(t->stop));
 	}
+#endif
 }
 
 char *timerstr(struct timer *t)
 {
+#ifndef	_WIN32
 	struct timeval elapsed;
 	char *s;
 
 	difftimeval(&t->start, &t->stop, &elapsed);
 	s = timevalstr(&elapsed);
 	return s;
+#else
+	return "";
+#endif
 }
 
