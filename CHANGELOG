@@ -1,5 +1,11 @@
 CHANGELOG - ez8mon
 
+build 2004/08/06
+----------------
+* Fixed TCP/IP network client. Was broken when C++ error exceptions
+  were added, but not tested.
+
+
 build 2004/07/09
 ----------------
 * Implemented read acknowledge feature to allow debugging during stopmode. 
