@@ -1,6 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004 Zilog, Inc.
  *
- * $Id: ez8dbg.cpp,v 1.1 2004/08/03 14:23:48 jnekl Exp $
+ * $Id: ez8dbg.cpp,v 1.2 2004/08/06 14:39:35 jnekl Exp $
  *
  * This implements the debugger api. It makes calls to the
  * lower level ez8ocd to do all its work.
@@ -95,7 +95,7 @@ ez8dbg::~ez8dbg(void)
 		free(buffer);
 	}
 
-	if(dbg && link_up()) {
+	if(dbg && link_open() && link_up()) {
 		ez8ocd::wr_dbgctl(0x00);
 	}
 
