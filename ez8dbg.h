@@ -1,6 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004 Zilog, Inc.
  *
- * $Id: ez8dbg.h,v 1.1 2004/08/03 14:23:48 jnekl Exp $
+ * $Id: ez8dbg.h,v 1.2 2004/12/01 01:26:49 jnekl Exp $
  *
  * This implements a debugger api for the ez8 on-chip debugger.
  */
@@ -24,6 +24,9 @@
 #define	MEMCRC_CACHED	0x20
 #define	MEMSIZE_CACHED	0x40
 #define	FCTL_CACHED	0x80
+#define	RELOAD_CACHED	0x0100
+#define	SYSCLK_CACHED	0x0200
+#define	FREQ_CACHED	0x0400
 
 /* 5 second reset timeout (typical reset is 10ms) */
 #define	RESET_TIMEOUT	5
@@ -48,14 +51,14 @@ private:
 	uint16_t crc;
 	uint16_t memcrc;
 	uint8_t memsize;
+	uint16_t reload;
+	uint16_t freq;
 
 	/* buffers */
 	uint8_t *main_mem;
 	uint8_t *info_mem;
 	uint8_t *reg_mem;
 	uint8_t *buffer;
-
-	uint16_t sysclk;
 
 	/* breakpoints */
 	struct breakpoint_t {
@@ -75,17 +78,19 @@ private:
 	void cache_crc(void);
 	void cache_memcrc(void);
 	void cache_memsize(void);
+	void cache_reload(void);
+	void cache_sysclk(void);
+	void cache_freq(void);
+
+public:
+	int sysclk;
 
 	void save_flash_state(uint8_t *);
 	void restore_flash_state(uint8_t *);
-	void flash_setup(uint8_t, uint16_t);
+	void flash_setup(uint8_t);
 	void flash_lock(void);
 	void flash_page_erase(uint8_t);
 
-protected:
-
-
-public:
 	ez8dbg();
 	~ez8dbg();
 
@@ -127,7 +132,7 @@ public:
 	void rd_info(uint16_t, uint8_t *, size_t);
 	void wr_info(uint16_t, const uint8_t *, size_t);
 
-	void set_sysclk(unsigned long);
+	void set_sysclk(int);
 	void mass_erase(bool);
 	void flash_mass_erase(void);
 	void write_flash(uint16_t, const uint8_t *, size_t);
@@ -140,6 +145,7 @@ public:
 	void read_mem(uint16_t, uint8_t *, size_t);
 
 	int memory_size(void);
+	int get_sysclk(void);
 
 	uint8_t rd_trce_status(void);
 	void wr_trce_ctl(uint8_t);	

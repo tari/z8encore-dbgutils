@@ -1,6 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004 Zilog, Inc.
  *
- * $Id: endurance.cpp,v 1.1 2004/08/03 14:23:48 jnekl Exp $
+ * $Id: endurance.cpp,v 1.2 2004/12/01 01:26:49 jnekl Exp $
  *
  * Utility to do flash endurance testing.
  */
@@ -39,7 +39,7 @@
 #endif
 
 #ifndef	DEFAULT_MTU
-#define	DEFAULT_MTU 1024
+#define	DEFAULT_MTU 4096
 #endif
 
 #define	MEMSIZE	0x10000

@@ -1,6 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004 Zilog, Inc.
  *
- * $Id: ez8dbg_brk.cpp,v 1.1 2004/08/03 14:23:48 jnekl Exp $
+ * $Id: ez8dbg_brk.cpp,v 1.2 2004/12/01 01:26:49 jnekl Exp $
  *
  * This implements breakpoints for the debugger. 
  */
@@ -113,7 +113,7 @@ void ez8dbg::set_breakpoint(uint16_t address)
 	breakpoints[num_breakpoints].data = data[0];
 	num_breakpoints++;
 
-	flash_setup(0x00, sysclk);
+	flash_setup(0x00);
 
 	cache &= ~(MEMCRC_CACHED | CRC_CACHED);
 	main_mem[address] = *brk;

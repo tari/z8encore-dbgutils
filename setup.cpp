@@ -1,6 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004 Zilog, Inc.
  *
- * $Id: setup.cpp,v 1.3 2004/10/08 15:05:01 jnekl Exp $
+ * $Id: setup.cpp,v 1.4 2004/12/01 01:26:49 jnekl Exp $
  *
  * This file initializes the debugger enviroment by reading
  * settings from a config file and by parsing command-line
@@ -75,7 +75,7 @@ int verbose;
 #endif
 
 #ifndef	DEFAULT_MTU
-#define	DEFAULT_MTU		1024
+#define	DEFAULT_MTU		4096
 #endif
 
 #ifndef	DEFAULT_SYSCLK

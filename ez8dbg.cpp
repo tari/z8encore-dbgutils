@@ -1,6 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004 Zilog, Inc.
  *
- * $Id: ez8dbg.cpp,v 1.2 2004/08/06 14:39:35 jnekl Exp $
+ * $Id: ez8dbg.cpp,v 1.3 2004/12/01 01:26:49 jnekl Exp $
  *
  * This implements the debugger api. It makes calls to the
  * lower level ez8ocd to do all its work.
@@ -42,6 +42,9 @@ ez8dbg::ez8dbg(void)
 	dbgctl = 0x00;
 	pc = 0x0000;
 	crc = 0x0000;
+	reload = 0x0000;
+	sysclk = 0;
+	freq = 0;
 
 	memcrc = 0x0000;
 	memsize = 0;
@@ -59,8 +62,6 @@ ez8dbg::ez8dbg(void)
 	/* scratch buffer */
 	buffer = (uint8_t *)xmalloc(EZ8MEM_SIZE);
 	memset(buffer, 0, EZ8MEM_SIZE);
-
-	sysclk = 0x0000;
 
 	num_breakpoints = 0;
 	breakpoints = NULL;
@@ -370,6 +371,102 @@ void ez8dbg::cache_memcrc(void)
 	cache |= MEMCRC_CACHED;
 
 	return;
+}
+
+/**************************************************************
+ * This will cache the baud reload register.
+ *
+ * This register does not exist on initial versions of the
+ * on-chip debugger.
+ */
+
+void ez8dbg::cache_reload(void)
+{
+	if(cache & RELOAD_CACHED) {
+		return;
+	}
+
+	cache_dbgrev();
+	switch(dbgrev) {
+	case 0x0000:
+	case 0x0100:
+	case 0x0110:
+	case 0x0120:
+	case 0x0121:
+	case 0x0122:
+	case 0x0123:
+	case 0x0124:
+	case 0x0125:
+	case 0x0127:
+	case 0x012A:
+	case 0x012B:
+		reload = 0x0000;
+		break;
+	case 0x0126:
+	default:
+		reload = ez8ocd::rd_reload();
+		break;
+	}
+	cache |= RELOAD_CACHED;
+
+	return;
+}
+
+/**************************************************************
+ * This will try to auto-detect the system clock frequency.
+ */
+
+void ez8dbg::cache_sysclk(void)
+{
+	int baudrate;
+
+	if(cache & SYSCLK_CACHED) {
+		return;
+	}
+	
+	cache_reload();
+	if(!reload) {
+		return;
+	}
+
+	baudrate = link_speed();
+	if(!baudrate) {
+		return;
+	}
+
+	sysclk = reload * baudrate / 8;
+	cache |= SYSCLK_CACHED;
+
+	return;
+}
+
+/**************************************************************
+ * This will cache the clock frequency calculation.
+ */
+
+void ez8dbg::cache_freq(void)
+{
+	if(cache & FREQ_CACHED) {
+		return;
+	}
+	
+	cache_sysclk();
+
+	freq = sysclk / 1000;
+	cache |= FREQ_CACHED;
+
+	return;
+}
+
+/**************************************************************
+ * This will return the calculated system clock based upon
+ * the baudrate and .
+ */
+
+int ez8dbg::get_sysclk(void)
+{
+	cache_sysclk();
+	return sysclk;
 }
 
 /**************************************************************

@@ -35,5 +35,14 @@ command line:
 config file (ez8mon.cfg):
 	mtu = 16
 
+2) buffer sizes 
+
+There appears to be a limitation on the serial buffer size on most
+operating systems. Experimentation has shown this buffer size
+limitiation to be 4k on Windows NT 4.0 and Windows XP (other varients of
+windows were not tested). Solaris 9 was determined to have a buffer
+limitation of 16k.
+
 ----------------------------------------------------------------
+
 

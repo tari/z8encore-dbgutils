@@ -1,6 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004 Zilog, Inc.
  *
- * $Id: ocd_parport.h,v 1.1 2004/08/03 14:23:48 jnekl Exp $
+ * $Id: ocd_parport.h,v 1.2 2004/12/01 01:26:49 jnekl Exp $
  *
  * This implements the parallel interface module for the 
  * ez8 on-chip debugger.
@@ -31,7 +31,10 @@ public:
 
 	bool link_open(void);
 	bool link_up(void);
+	int  link_speed(void);
+
 	bool available(void);
+	bool error(void);
 
 	void write(const uint8_t *, size_t);
 	void read(uint8_t *, size_t);

@@ -1,6 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004 Zilog, Inc.
  *
- * $Id: monitor.cpp,v 1.1 2004/08/03 14:23:48 jnekl Exp $
+ * $Id: monitor.cpp,v 1.2 2004/12/01 01:26:49 jnekl Exp $
  *
  * This implments the command line debugger api.
  */
@@ -69,33 +69,60 @@ int check_if_running(void)
 void display_info(void)
 {
 	uint16_t dbgrev;
+	uint16_t reload;
 	uint16_t crc;
 	int size;
 	uint8_t psi[21];
 
 	dbgrev = ez8->rd_dbgrev();
-	printf("DBGREV:       %04X\n", dbgrev);
+	printf("REVISION IDENTIFIER:         %04X\n", dbgrev);
 
+	printf("PRODUCT SPECIFICATION INDEX: ");
 	if(ez8->state(ez8->state_protected)) {
-		printf("PSI:          not available (read protect enabled)\n");
+		printf("not available (read protect enabled)\n");
 	} else {
 		ez8->rd_info(0x40, psi, 20);
 		psi[20] = '\0';
 		if(!memcmp(psi, "Z8", 2)) {
-			printf("PSI:          %s\n", psi);
+			printf("%s\n", psi);
 		} else {
-			printf("PSI:          invalid\n");
+			printf("invalid\n");
 		}
 	}
 
 	size = ez8->memory_size();
-	printf("MEMSIZE:      %dk = %04X-%04X\n", size / 1024, 0, size - 1);
-	crc = ez8->rd_crc();
+	printf("MEMORY SIZE:                 %dk = %04X-%04X\n", 
+	    size / 1024, 0, size - 1);
 
-	printf("CRC:          %04X\n", crc);
+	crc = ez8->rd_crc();
+	printf("CYCLIC REDUNDANCY CHECK:     %04X\n", crc);
 
 	if(ez8->state(ez8->state_protected)) {
-		printf("CODE PROTECT: enabled\n");
+		printf("CODE PROTECT:                enabled\n");
+	}
+
+	reload = ez8->rd_reload();
+	if(reload) {
+		int clk;
+		div_t mhz, khz;
+
+		printf("BAUDRATE RELOAD:             %04X\n", reload);
+
+		clk = ez8->get_sysclk();
+		printf("ESTIMATED FREQUENCY:         ");
+
+		mhz = div(clk, 1000000);
+		khz = div(mhz.rem, 1000);
+		
+		if(mhz.quot) {
+			printf("%d.%03d MHz\n", mhz.quot, khz.quot);
+		} else if(khz.quot) {
+			printf("%d.%03d kHz\n", khz.quot, khz.rem);
+		} else if(clk){
+			printf("%d Hz\n", clk);
+		} else {
+			printf("\n");
+		}
 	}
 
 	return;

@@ -1,6 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004 Zilog, Inc.
  *
- * $Id: ez8dbg_flash.cpp,v 1.1 2004/08/03 14:23:48 jnekl Exp $
+ * $Id: ez8dbg_flash.cpp,v 1.2 2004/12/01 01:26:49 jnekl Exp $
  *
  * This implements the flash routines of the debugger api.
  */
@@ -248,7 +248,7 @@ void ez8dbg::wr_mem(uint16_t address, const uint8_t *data, size_t size)
 	memcpy(main_mem+address, data, size); 
 
 	/* write data block to memory */
-	flash_setup(0x00, sysclk);
+	flash_setup(0x00);
 	write_flash(block_start, main_mem+block_start, block_length);
 	flash_lock();
 
@@ -380,7 +380,7 @@ void ez8dbg::wr_info(uint16_t address, const uint8_t *data, size_t size)
 	memcpy(info_mem+address, data, size); 
 
 	/* write data block to memory */
-	flash_setup(0x80, sysclk);
+	flash_setup(0x80);
 	switch(dbgrev) {
 	case 0x0100:
 	case 0x8100:
@@ -419,16 +419,16 @@ void ez8dbg::wr_info(uint16_t address, const uint8_t *data, size_t size)
  * This will set the sysclk used for writing the flash.
  */
 
-void ez8dbg::set_sysclk(unsigned long clk)
+void ez8dbg::set_sysclk(int clk)
 {
-	if(clk / 1000 > 0x10000) {
+	if(clk / 1000 > 0x10000 || clk < 0) {
 		sysclk = 0x0000;
 		strncpy(err_msg, "Set sysclk failed\n"
 		    "value out of range\n", err_len-1);
 		throw err_msg;
 	}
 
-	sysclk = clk / 1000;
+	sysclk = clk;
 
 	return;
 }
@@ -502,7 +502,7 @@ void ez8dbg::restore_flash_state(uint8_t *state)
  * This will setup the flash controller for programming/erasure.
  */
 
-void ez8dbg::flash_setup(uint8_t page, uint16_t clk)
+void ez8dbg::flash_setup(uint8_t page)
 {
 	uint8_t data[4];
 	const uint8_t unlock0[1] = { EZ8_FIF_UNLOCK_0 };
@@ -514,10 +514,12 @@ void ez8dbg::flash_setup(uint8_t page, uint16_t clk)
 		throw err_msg;
 	}
 
+	cache_freq();
+
 	data[0] = EZ8_FIF_LOCK;
 	data[1] = page;
-	data[2] = (clk >> 8) & 0xff;
-	data[3] = clk & 0xff;
+	data[2] = (freq >> 8) & 0xff;
+	data[3] = freq & 0xff;
 
 	wr_regs(EZ8_FIF_BASE, data, 4);
 	wr_regs(EZ8_FIF_BASE, unlock0, 1);
@@ -567,7 +569,7 @@ void ez8dbg::flash_page_erase(uint8_t page)
 	}
 
 	/* execute page erase */
-	flash_setup(page, sysclk);
+	flash_setup(page);
 	wr_regs(EZ8_FIF_BASE, erase, 1);
 
 	start = time(NULL);
@@ -622,7 +624,7 @@ void ez8dbg::mass_erase(bool info)
 	cache &= ~(CRC_CACHED | MEMCRC_CACHED);
 
 	/* execute mass erase */
-	flash_setup(info?0x80:0x00, sysclk);
+	flash_setup(info?0x80:0x00);
 	wr_regs(EZ8_FIF_BASE, erase, 1);
 
 	if(state(state_protected)) {

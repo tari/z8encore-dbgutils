@@ -1,6 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004 Zilog, Inc.
  *
- * $Id: serialport.h,v 1.2 2004/10/08 15:03:30 jnekl Exp $
+ * $Id: serialport.h,v 1.3 2004/12/01 01:26:49 jnekl Exp $
  *
  * This is a generic api for serial ports on both unix and
  * windows systems.
@@ -44,6 +44,9 @@ private:
 
 	#ifndef	_WIN32
 	void setflock(void);
+	void read_byte(unsigned char *);
+	unsigned char rxbuff[4];
+	size_t len;
 	#endif	/* _WIN32 */
 
 	#ifdef	_WIN32	
@@ -71,10 +74,12 @@ public:
 	void close(void);
 	int  read(void *, size_t);
 	void write(const void *, size_t);
-	bool available(void);
 
 	void sendbreak(void);
 	void flush(void);
+
+	bool available(void);
+	bool error(void);
 };
 
 #endif	/* SERIALPORT_HEADER */

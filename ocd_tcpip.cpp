@@ -1,6 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004 Zilog, Inc.
  *
- * $Id: ocd_tcpip.cpp,v 1.2 2004/08/06 14:41:54 jnekl Exp $
+ * $Id: ocd_tcpip.cpp,v 1.3 2004/12/01 01:26:49 jnekl Exp $
  *
  * This is the tcpip ocd connection.
  */
@@ -1007,9 +1007,20 @@ void ocd_tcpip::write(const uint8_t *data, size_t size)
 
 /**************************************************************/
 
+int ocd_tcpip::link_speed(void)
+{
+	return 0;
+}
+
 bool ocd_tcpip::available(void)
 {
 	/* TODO: add "AVAILABLE" command to tcp/ip protocol */
+	return 0;
+}
+
+bool ocd_tcpip::error(void)
+{
+	/* TODO: add "ERROR" command to tcp/ip protocol */
 	return 0;
 }
 

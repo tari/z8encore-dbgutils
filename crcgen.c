@@ -1,6 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004 Zilog, Inc.
  *
- * $Id: crcgen.c,v 1.1 2004/08/03 14:23:48 jnekl Exp $
+ * $Id: crcgen.c,v 1.2 2004/12/01 01:26:49 jnekl Exp $
  *
  * This program will generate the CRC of an intel hexfile
  * that is returned by the Z8 Encore on-chip debugger.
@@ -137,7 +137,6 @@ int main(int argc, char **argv)
 		memset(buff, zero_fill ? 0x00 : 0xff, memsize);
 		err = rd_hexfile(buff, memsize, argv[i]);
 		if(err) {
-			printf("%s: error reading file\n", argv[i]);
 			continue;
 		}
 		crc = crc_ccitt(0x0000, buff, memsize);

@@ -1,6 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004 Zilog, Inc.
  *
- * $Id: ez8.h,v 1.1 2004/08/03 14:23:48 jnekl Exp $
+ * $Id: ez8.h,v 1.2 2004/12/01 01:26:49 jnekl Exp $
  */
 
 #ifndef	EZ8_HEADER
@@ -47,6 +47,7 @@
 #define DBG_CMD_STEP_INST       0x10
 #define DBG_CMD_STUFF_INST      0x11
 #define DBG_CMD_EXEC_INST       0x12
+#define DBG_CMD_RD_RELOAD       0x1b
 #define DBG_CMD_TRCE_CMD        0x40
 
 #define TRCE_CMD_RD_TRCE_STATUS 0x01

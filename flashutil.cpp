@@ -1,6 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004 Zilog, Inc.
  *
- * $Id: flashutil.cpp,v 1.2 2004/10/08 15:02:42 jnekl Exp $
+ * $Id: flashutil.cpp,v 1.3 2004/12/01 01:26:49 jnekl Exp $
  *
  * Z8 Encore Flash programming utility.
  */
@@ -38,7 +38,7 @@
 #endif
 
 #ifndef	DEFAULT_MTU
-#define	DEFAULT_MTU 1024
+#define	DEFAULT_MTU 4096
 #endif
 
 #define	MEMSIZE	0x10000

@@ -1,6 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004 Zilog, Inc.
  *
- * $Id: serialport.cpp,v 1.3 2004/11/30 17:13:32 jnekl Exp $
+ * $Id: serialport.cpp,v 1.4 2004/12/01 01:26:49 jnekl Exp $
  *
  * This is a universial serial port api. It will work on
  * both unix and windows systems.
@@ -184,6 +184,9 @@ serialport::serialport()
 	parity = none;
 	stopbits = one;
 	flowcontrol = 0;
+
+	memset(rxbuff, 0, sizeof(rxbuff));
+	len = 0;
 
 	return;
 }
@@ -1074,7 +1077,7 @@ bool serialport::available(void)
 }
 #else	/* _WIN32 */
 {
-	DWORD error;
+	DWORD err;
 	COMSTAT stat;
 
 	if(fdes == INVALID_HANDLE_VALUE) {
@@ -1083,7 +1086,7 @@ bool serialport::available(void)
 		throw err_msg;
 	}
 
-	ClearCommError(fdes, &error, &stat);
+	ClearCommError(fdes, &err, &stat);
 
 	if(!stat.cbInQue) {
 		return 0;
@@ -1131,10 +1134,20 @@ int serialport::read(void *buff, size_t size)
 		unsigned char *src;
 		int count;
 
-		/* read data from serial port */
-		do {
-			count = ::read(fdes, dst, size);
-		} while(count < 0 && errno == EINTR);
+		if(!len) {
+			/* read data from serial port */
+			do {
+				count = ::read(fdes, dst, size);
+			} while(count < 0 && errno == EINTR);
+		} else {
+			/* if data in read-ahead buffer */
+			count = 1;
+			*dst = *rxbuff;
+			rxbuff[0] = rxbuff[1];
+			rxbuff[1] = rxbuff[2];
+			rxbuff[2] = rxbuff[3];
+			len--;
+		}
 
 		if(!count) {
 			switch(state) {
@@ -1428,6 +1441,7 @@ void serialport::flush(void)
 		throw err_msg;
 	}
 
+	len = 0;
 	err = tcflush(fdes, TCIOFLUSH);
 	if(err) {
 		snprintf(err_msg, err_len-1, "Serial port flush failed\n"
@@ -1468,6 +1482,70 @@ void serialport::flush(void)
 }
 #endif	/* _WIN32 */
 
+/**************************************************************/
+
+#ifndef	_WIN32
+void serialport::read_byte(unsigned char *ptr)
+{
+	int count;
+
+	/* read data from serial port */
+	do {
+		count = ::read(fdes, ptr, 1);
+	} while(count < 0 && errno == EINTR);
+
+	if(count < 0) {
+		snprintf(err_msg, err_len-1, "Read serial port failed\n"
+		    "read:%s\n", strerror(errno));
+		throw err_msg;
+	}
+	if(!count) {
+		snprintf(err_msg, err_len-1, "Read serial port failed\n"
+		    "read: timeout\n");
+		throw err_msg;
+	}
+	len += count;
+	return;
+}
+#endif
+
+bool serialport::error(void)
+#ifndef	_WIN32
+{
+	if(!available()) {
+		return 0;
+	}
+	read_byte(&rxbuff[0]);
+	if(rxbuff[0] != 0xff) {
+		return 0;
+	}
+	read_byte(&rxbuff[1]);
+	if(rxbuff[1] != 0x00) {
+		return 0;
+	}
+	read_byte(&rxbuff[2]);
+	return 1;
+}
+#else	/* _WIN32 */
+{
+	DWORD err;
+	COMSTAT stat;
+
+	if(fdes == INVALID_HANDLE_VALUE) {
+		strncpy(err_msg, "Serial port read failed\n"
+		    "serial port not opened\n", err_len-1);
+		throw err_msg;
+	}
+
+	ClearCommError(fdes, &err, &stat);
+
+	if(err & CE_BREAK) {
+		return 1;
+	}
+
+	return 0;
+}
+#endif	/* _WIN32 */
 /**************************************************************/
 
 

@@ -71,7 +71,17 @@ bool ocd_parport::link_up(void)
 	return 0;
 }
 
+int ocd_parport::link_speed(void)
+{
+	return 0;
+}
+
 bool ocd_parport::available(void)
+{
+	return 0;
+}
+
+bool ocd_parport::error(void)
 {
 	return 0;
 }

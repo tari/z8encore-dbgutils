@@ -1,6 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004 Zilog, Inc.
  *
- * $Id: ez8ocd.h,v 1.1 2004/08/03 14:23:48 jnekl Exp $
+ * $Id: ez8ocd.h,v 1.2 2004/12/01 01:26:49 jnekl Exp $
  *
  * This class implements the basic ez8 on-chip debugger 
  * commands.
@@ -9,6 +9,7 @@
 #ifndef	EZ8OCD_HEADER
 #define	EZ8OCD_HEADER
 
+#include	<stdio.h>
 #include	<stdlib.h>
 #include	<inttypes.h>
 #include	"ocd.h"
@@ -45,10 +46,11 @@ private:
 	/* Prohibit use of copy constructor */
 	ez8ocd(ez8ocd &);
 
-protected:
+public:
 	/* polymorphic class for ocd link */
 	ocd *dbg;
 
+	void new_command(void);
 	bool rd_ack(void);
 
 	void wr_dbgctl(uint8_t);
@@ -103,12 +105,14 @@ public:
 
 	bool link_open(void);
 	bool link_up(void);
+	int  link_speed(void);
 	void reset_link(void);
 
 	void read(uint8_t *, size_t);
 	void write(const uint8_t *, size_t);
 
 	uint16_t rd_dbgrev(void);
+	uint16_t rd_reload(void);
 	uint8_t rd_dbgstat(void);
 };
 

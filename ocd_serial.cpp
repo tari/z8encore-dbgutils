@@ -1,6 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004 Zilog, Inc.
  *
- * $Id: ocd_serial.cpp,v 1.1 2004/08/03 14:23:48 jnekl Exp $
+ * $Id: ocd_serial.cpp,v 1.2 2004/12/01 01:26:49 jnekl Exp $
  *
  * This class implements the serial interface module for the
  * Z8 Encore On-Chip Debugger.
@@ -146,6 +146,15 @@ void ocd_serial::write(const uint8_t *buff, size_t size)
 		throw err_msg;
 	}
 
+	if(serialport::error()) {
+		try {
+			reset();
+		} catch(char *err) {
+			up = 0;
+			throw err;
+		}
+	}
+
 	try {
 		serialport::write(buff, size);
 	} catch(char *err) {
@@ -265,6 +274,37 @@ bool ocd_serial::available(void)
 	}
 
 	return serialport::available();
+}
+
+/**************************************************************
+ * This function will check if there is an error pending
+ * (such as a break condition). This is used to determine
+ * if we need to re-autobaud due to a break caused by a
+ * clock switch.
+ */
+
+bool ocd_serial::error(void)
+{
+	if(!open) {
+		strncpy(err_msg, "Cannot read from on-chip debugger\n"
+		    "serial port not open\n", err_len-1);
+		throw err_msg;
+	}
+
+	if(!up) {
+		strncpy(err_msg, "Cannot read from on-chip debugger\n"
+		    "link needs to be reset first\n", err_len-1);
+		throw err_msg;
+	}
+
+	return serialport::error();
+}
+
+/**************************************************************/
+
+int ocd_serial::link_speed(void)
+{
+	return serialport::baudrate;
 }
 
 /**************************************************************/

@@ -1,6 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004 Zilog, Inc.
  *
- * $Id: ez8ocd.cpp,v 1.1 2004/08/03 14:23:48 jnekl Exp $
+ * $Id: ez8ocd.cpp,v 1.2 2004/12/01 01:26:49 jnekl Exp $
  *
  * This implements the low level functions of the Z8 Encore
  * On-Chip Debugger.
@@ -291,6 +291,21 @@ bool ez8ocd::link_up(void)
 }
 
 /**************************************************************
+ * This will return the speed (baudrate) of the link.
+ */
+
+int ez8ocd::link_speed(void)
+{
+	if(!dbg) {
+		strncpy(err_msg, "Cannot retrieve link speed\n"
+		    "not connected\n", err_len-1);
+		throw err_msg;
+	}
+
+	return dbg->link_speed();
+}
+
+/**************************************************************
  * This will autobaud and initialize the on-chip debugger.
  */
 
@@ -308,6 +323,17 @@ void ez8ocd::reset_link(void)
 }
 
 /**************************************************************
+ * Possibly reset link if needed.
+ */
+
+void ez8ocd::new_command(void)
+{
+	if(dbg->error()) {
+		dbg->reset();
+	}
+}
+
+/**************************************************************
  * This will retrieve the ez8 DBG RevID.
  */
 
@@ -319,6 +345,7 @@ uint16_t ez8ocd::rd_dbgrev(void)
 
 	command[0] = DBG_CMD_RD_REVID;
 
+	new_command();
 	write(command, 1);
 	read(data, 2);
 
@@ -338,6 +365,7 @@ uint8_t ez8ocd::rd_dbgstat(void)
 
 	command[0] = DBG_CMD_RD_DBGSTAT;
 
+	new_command();
 	write(command, 1);
 	read(data, 1);
 
@@ -382,6 +410,7 @@ void ez8ocd::wr_dbgctl(uint8_t data)
 	command[0] = DBG_CMD_WR_DBGCTL;
 	command[1] = data;
 
+	new_command();
 	write(command, 2);
 
 	return;
@@ -398,6 +427,7 @@ uint8_t ez8ocd::rd_dbgctl(void)
 
 	command[0] = DBG_CMD_RD_DBGCTL;
 
+	new_command();
 	write(command, 1);
 	read(data, 1);
 
@@ -416,6 +446,7 @@ void ez8ocd::wr_cntr(uint16_t cntr)
 	command[1] = (cntr >> 8) & 0xff;
 	command[2] = cntr & 0xff;
 
+	new_command();
 	write(command, 3);
 
 	return;
@@ -433,6 +464,7 @@ uint16_t ez8ocd::rd_cntr(void)
 
 	command[0] = DBG_CMD_RD_CNTR;
 
+	new_command();
 	write(command, 1);
 	read(data, 2);
 
@@ -453,6 +485,7 @@ void ez8ocd::wr_pc(uint16_t pc)
 	command[1] = (pc >> 8) & 0xff;
 	command[2] = pc & 0xff;
 
+	new_command();
 	write(command, 3);
 
 	return;
@@ -470,6 +503,7 @@ uint16_t ez8ocd::rd_pc(void)
 
 	command[0] = DBG_CMD_RD_PC;
 
+	new_command();
 	write(command, 1);
 	read(data, 2);
 
@@ -500,6 +534,7 @@ void ez8ocd::wr_regs(uint16_t address, const uint8_t *buff, size_t size)
 		command[2] = address & 0xff;
 		command[3] = len < EZ8REG_BUFSIZ ? len & 0xff : 0;
 
+		new_command();
 		write(command, 4);
 		write(buff, len);
 
@@ -537,9 +572,11 @@ void ez8ocd::rd_regs(uint16_t address, uint8_t *buff, size_t size)
 		command[3] = len < EZ8REG_BUFSIZ ?  len & 0xff : 0;
 
 		if(mtu > 0 && len+4 > mtu) {
+			new_command();
 			write(command, 3);
 			write(command+3, 1);
 		} else {
+			new_command();
 			write(command, 4);
 		}
 
@@ -753,6 +790,25 @@ void ez8ocd::exec_inst(const uint8_t *opcodes, size_t size)
 	write(command, size+1);
 
 	return;
+}
+
+/**************************************************************/
+
+uint16_t ez8ocd::rd_reload(void)
+{
+	uint8_t command[1];
+	uint8_t data[2];
+	uint16_t reload;
+
+	command[0] = DBG_CMD_RD_RELOAD;
+
+	new_command();
+	write(command, 1);
+	read(data, 2);
+
+	reload = (data[0] << 8) | data[1];
+
+	return reload;
 }
 
 /**************************************************************/

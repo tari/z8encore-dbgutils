@@ -1,6 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004 Zilog, Inc.
  *
- * $Id: ocd.h,v 1.1 2004/08/03 14:23:48 jnekl Exp $
+ * $Id: ocd.h,v 1.2 2004/12/01 01:26:49 jnekl Exp $
  *
  * This is a generic interface class to be inherited by
  * specific ez8 on-chip debugger interface classes 
@@ -29,10 +29,13 @@ public:
 
 	virtual bool link_open(void) = 0;
 	virtual bool link_up(void) = 0;
-	virtual bool available(void) = 0;
+	virtual int  link_speed(void) = 0;
 
 	virtual void read(uint8_t *, size_t) = 0;
 	virtual void write(const uint8_t *, size_t) = 0;
+
+	virtual bool available(void) = 0;
+	virtual bool error(void) = 0;
 };
 
 /**************************************************************/

@@ -1,6 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004 Zilog, Inc.
  *
- * $Id: hexfile.c,v 1.1 2004/08/03 14:23:48 jnekl Exp $
+ * $Id: hexfile.c,v 1.2 2004/12/01 01:26:49 jnekl Exp $
  *
  * These functions are used to read and write Intel hexfiles.
  */
@@ -10,6 +10,7 @@
 #include	<stdio.h>
 #include	<stdlib.h>
 #include	<inttypes.h>
+#include	<errno.h>
 #include	<ctype.h>
 #include	<string.h>
 #include	<assert.h>
@@ -48,7 +49,8 @@ int rd_hexfile(uint8_t *buff, size_t buffsize, const char *filename)
 
 	file = fopen(filename, "rb");
 	if(file == NULL) {
-		perror("fopen");
+		fprintf(stderr, "%s:fopen:%s\n", 
+		    filename, strerror(errno));
 		return -1;
 	}
 
@@ -66,7 +68,7 @@ int rd_hexfile(uint8_t *buff, size_t buffsize, const char *filename)
 			continue;
 		}
 		if(*data++ != ':') {
-			fprintf(stderr, "%s:%d hexfile corrupt\n", 
+			fprintf(stderr, "%s:%d:hexfile corrupt\n", 
 			    filename, line);
 			fclose(file);
 			free(readbuff);
@@ -83,8 +85,8 @@ int rd_hexfile(uint8_t *buff, size_t buffsize, const char *filename)
 			} else if(c >= 'a' && c <= 'f') {
 				*end++ = c - 'a' + 10;
 			} else {
-				fprintf(stderr, "Corrupt hexfile, line %d\n", 
-				    line);
+				fprintf(stderr, "%s:%d:hexfile corrupt\n", 
+				    filename, line);
 				fclose(file);
 				free(readbuff);
 				return -1;
@@ -92,14 +94,14 @@ int rd_hexfile(uint8_t *buff, size_t buffsize, const char *filename)
 		}
 		/* should be even number of nibbles */
 		if((end - data) % 2) {
-			fprintf(stderr, "%s:%d hexfile corrupt\n", 
+			fprintf(stderr, "%s:%d:hexfile corrupt\n", 
 			    filename, line);
 			fclose(file);
 			free(readbuff);
 			return -1;
 		}
 		if((end-data) < sizeof("SSAAAATTCC") - 1) {
-			fprintf(stderr, "%s:%d hexfile corrput\n", 
+			fprintf(stderr, "%s:%d:hexfile corrput\n", 
 			    filename, line);
 			fclose(file);
 			free(readbuff);
@@ -119,7 +121,7 @@ int rd_hexfile(uint8_t *buff, size_t buffsize, const char *filename)
 			checksum += *ptr2++;
 		}
 		if(checksum != 0x00) {
-			fprintf(stderr, "%s:%d hexfile corrupt\n", 
+			fprintf(stderr, "%s:%d:hexfile corrupt\n", 
 			    filename, line);
 			fclose(file);
 			free(readbuff);
@@ -132,7 +134,7 @@ int rd_hexfile(uint8_t *buff, size_t buffsize, const char *filename)
 		type = *data++;
 
 		if(size != ptr1 - data - 1) {
-			fprintf(stderr, "%s:%d hexfile corrupt", 
+			fprintf(stderr, "%s:%d:hexfile corrupt", 
 			    filename, line);
 			fclose(file);
 			free(readbuff);
@@ -146,14 +148,14 @@ int rd_hexfile(uint8_t *buff, size_t buffsize, const char *filename)
 					(sba<<4)+((drlo+dri)%0x10000) :
 				        (((lba<<16)|drlo)+dri)&0xffffffff;
 				if(address >= buffsize) {
-					fprintf(stderr, "%s:%d memory out "
+					fprintf(stderr, "%s:%d:memory out "
 					    "of range\n", filename, line);
 					fclose(file);
 					free(readbuff);
 					return -1;
 				}
 				if(buff[address] != fill) {
-					fprintf(stderr, "%s:%d overlapping "
+					fprintf(stderr, "%s:%d:overlapping "
 					    "data, addr %04x\n", filename, 
 					    line, address);
 					fclose(file);
@@ -165,7 +167,7 @@ int rd_hexfile(uint8_t *buff, size_t buffsize, const char *filename)
 			break;
 		case 0x01:	/* end-of-file record */
 			if(drlo != 0x0000 || size != 0x00) {
-				fprintf(stderr, "%s:%d hexfile corrupt\n", 
+				fprintf(stderr, "%s:%d:hexfile corrupt\n", 
 				    filename, line);
 				fclose(file);
 				free(readbuff);
@@ -174,7 +176,7 @@ int rd_hexfile(uint8_t *buff, size_t buffsize, const char *filename)
 			return 0;
 		case 0x02:	/* extended segment address record */
 			if(drlo != 0x0000 || size != 0x02) {
-				fprintf(stderr, "%s:%d hexfile corrupt\n", 
+				fprintf(stderr, "%s:%d:hexfile corrupt\n", 
 				    filename, line);
 				fclose(file);
 				free(readbuff);
@@ -185,7 +187,7 @@ int rd_hexfile(uint8_t *buff, size_t buffsize, const char *filename)
 			break;
 		case 0x03:	/* start segment address record */
 			if(drlo != 0x0000 || size != 0x04) {
-				fprintf(stderr, "%s:%d hexfile corrupt\n", 
+				fprintf(stderr, "%s:%d:hexfile corrupt\n", 
 				    filename, line);
 				fclose(file);
 				free(readbuff);
@@ -194,7 +196,7 @@ int rd_hexfile(uint8_t *buff, size_t buffsize, const char *filename)
 			break;
 		case 0x04:	/* extended linear address record */
 			if(drlo != 0x0000 || size != 0x02) {
-				fprintf(stderr, "%s:%d hexfile corrupt\n",
+				fprintf(stderr, "%s:%d:hexfile corrupt\n",
 				    filename, line);
 				fclose(file);
 				free(readbuff);
@@ -205,7 +207,7 @@ int rd_hexfile(uint8_t *buff, size_t buffsize, const char *filename)
 			break;
 		case 0x05:	/* start linear address record */
 			if(drlo != 0x0000 || size != 0x04) {
-				fprintf(stderr, "%s:%d hexfile corrupt\n", 
+				fprintf(stderr, "%s:%d:hexfile corrupt\n", 
 				    filename, line);
 				fclose(file);
 				free(readbuff);
@@ -213,7 +215,7 @@ int rd_hexfile(uint8_t *buff, size_t buffsize, const char *filename)
 			}
 			break;
 		default:
-			fprintf(stderr, "%s:%d hexfile corrupt\n", 
+			fprintf(stderr, "%s:%d:hexfile corrupt\n", 
 			    filename, line);
 			fclose(file);
 			free(readbuff);
@@ -246,7 +248,7 @@ int wr_hexfile(uint8_t *buff, size_t buffsize, size_t offset,
 
 	file = fopen(filename, "wb");
 	if(file == NULL) {
-		perror("fopen");
+		fprintf(stderr, "%s:fopen:%s\n", filename, strerror(errno));
 		return -1;
 	}
 
