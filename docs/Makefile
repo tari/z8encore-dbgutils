@@ -12,3 +12,7 @@ all: $(INFO) $(PDF)
 
 clean:
 	$(RM) *.pdf *.info $(TEXILOGFILES)
+
+almostclean:
+	$(RM) $(TEXILOGFILES)
+
