@@ -1,6 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004 Zilog, Inc.
  *
- * $Id: serialport.cpp,v 1.2 2004/10/08 15:04:11 jnekl Exp $
+ * $Id: serialport.cpp,v 1.3 2004/11/30 17:13:32 jnekl Exp $
  *
  * This is a universial serial port api. It will work on
  * both unix and windows systems.
@@ -587,7 +587,7 @@ void serialport::configure(void)
 	cfg.fBinary = TRUE;
 	cfg.fErrorChar = FALSE;
 	cfg.fNull = FALSE;
-	cfg.fAbortOnError = TRUE;
+	cfg.fAbortOnError = FALSE;
 	cfg.wReserved = 0;
 
 	
@@ -653,7 +653,7 @@ void serialport::configure(void)
 	cfg.fTXContinueOnXoff = FALSE;
 	cfg.fOutX = FALSE;
 	cfg.fInX = FALSE;
-	cfg.fRtsControl = RTS_CONTROL_HANDSHAKE;
+	cfg.fRtsControl = RTS_CONTROL_DISABLE;
 
 	if(flowcontrol & SERIAL_XONXOFF_INPUT) {
 		cfg.fInX = TRUE;
