@@ -1,6 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004 Zilog, Inc.
  *
- * $Id: setup.cpp,v 1.2 2004/08/06 14:38:33 jnekl Exp $
+ * $Id: setup.cpp,v 1.3 2004/10/08 15:05:01 jnekl Exp $
  *
  * This file initializes the debugger enviroment by reading
  * settings from a config file and by parsing command-line
@@ -93,22 +93,21 @@ ez8dbg *ez8 = &_ez8;
 
 rl_command_func_t *tab_function = rl_insert;
 
-char *connection = NULL;
-char *device = NULL;
-char *baudrate = NULL;
-char *sysclk = NULL;
-char *mtu = NULL;
-char *server = NULL;
-FILE *log_proto = NULL;
-char *logfile = NULL;
+static char *connection = NULL;
+static char *device = NULL;
+static char *baudrate = NULL;
+static char *sysclk = NULL;
+static char *mtu = NULL;
+static char *server = NULL;
+static FILE *log_proto = NULL;
+
+static int invoke_server = 0;
+static int disable_cache = 0;
 
 int repeat = 0x40;
-int invoke_server = 0;
-int disable_cache = 0;
 int show_times = 0;
-
-int testmenu = 0;
 int esc_key = 0;
+int testmenu = 0;
 
 /* option values to load upon reset */
 struct option_t {

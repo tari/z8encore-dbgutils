@@ -1,6 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004 Zilog, Inc.
  *
- * $Id: flashutil.cpp,v 1.1 2004/08/03 14:23:48 jnekl Exp $
+ * $Id: flashutil.cpp,v 1.2 2004/10/08 15:02:42 jnekl Exp $
  *
  * Z8 Encore Flash programming utility.
  */
@@ -45,29 +45,29 @@
 
 /**************************************************************/
 
-const char *banner = "Z8 Encore! Flash Utility";
-const char *progname;
+static const char *banner = "Z8 Encore! Flash Utility";
+static const char *progname;
 
-char *serialport = DEFAULT_SERIALPORT;
-int baudrate = DEFAULT_BAUDRATE;
-int mtu = DEFAULT_MTU;
-int xtal = DEFAULT_XTAL;
-int multipass = 0;
-int info = 0;
-int erase = 0;
-int zero_fill = 0;
-int verbose = 0;
-char *savefilename = NULL;
-char *programfilename = NULL;
+static char *serialport = DEFAULT_SERIALPORT;
+static int baudrate = DEFAULT_BAUDRATE;
+static int mtu = DEFAULT_MTU;
+static int xtal = DEFAULT_XTAL;
+static int multipass = 0;
+static int info = 0;
+static int erase = 0;
+static int zero_fill = 0;
+static int verbose = 0;
+static char *savefilename = NULL;
+static char *programfilename = NULL;
 
-uint8_t *buff, *blank;
-uint16_t buff_crc, blank_crc;
-int mem_size = 0;
-int max_mem = 0;
+static uint8_t *buff, *blank;
+static uint16_t buff_crc, blank_crc;
+static int mem_size = 0;
+static int max_mem = 0;
 
-uint16_t serial_address;
-uint32_t serial_number;
-int serial_size;
+static uint16_t serial_address;
+static uint32_t serial_number;
+static int serial_size;
 
 /**************************************************************/
 
@@ -318,6 +318,7 @@ int connect(void)
 			printf("Could not communicate with device\n");
 			fprintf(stderr, "%s", err);
 			dbg->disconnect();
+			return -1;
 		}
 	}
 
