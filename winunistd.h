@@ -1,4 +1,4 @@
-/* $Id: winunistd.h,v 1.1 2004/08/03 14:23:48 jnekl Exp $
+/* $Id: winunistd.h,v 1.2 2004/10/08 15:05:30 jnekl Exp $
  */
 
 #ifndef	UNISTD_HEADER
@@ -10,7 +10,8 @@
 
 #include	<windows.h>
 
-#define	usleep(time)	Sleep( time%1000 ? (time/1000)+1 : time/1000 )
+#define	usleep(time)	Sleep((time)%1000?((time)/1000)+1:(time)/1000)
+#define	sleep(time)	Sleep((time)*1000)
 
 #endif	/* _WIN32 */
 
