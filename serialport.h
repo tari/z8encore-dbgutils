@@ -1,6 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004 Zilog, Inc.
  *
- * $Id: serialport.h,v 1.1 2004/08/03 14:23:48 jnekl Exp $
+ * $Id: serialport.h,v 1.2 2004/10/08 15:03:30 jnekl Exp $
  *
  * This is a generic api for serial ports on both unix and
  * windows systems.
@@ -28,17 +28,6 @@ struct baudvalue {
 };
 
 extern "C" const struct baudvalue baudrates[];
-
-enum serial_exception {
-	serial_none,
-	serial_state,		// invalid state
-	serial_arguments,	// invalid arguments
-	serial_open,		// open failed
-	serial_configure,	// configuration failed
-	serial_io,		// io read/write failure
-};
-
-/**************************************************************/
 
 class serialport 
 {
@@ -88,9 +77,5 @@ public:
 	void flush(void);
 };
 
-/**************************************************************/
-
 #endif	/* SERIALPORT_HEADER */
-
-
 
