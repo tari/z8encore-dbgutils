@@ -1,6 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004 Zilog, Inc.
  *
- * $Id: serialport.cpp,v 1.1 2004/08/03 14:23:48 jnekl Exp $
+ * $Id: serialport.cpp,v 1.2 2004/10/08 15:04:11 jnekl Exp $
  *
  * This is a universial serial port api. It will work on
  * both unix and windows systems.
@@ -1268,7 +1268,9 @@ void serialport::write(const void *buff, size_t size)
 	ssize_t bytes_written;
 
 	if(fdes < 0) {
-		throw serial_state;
+		strncpy(err_msg, "Serial port write failed\n"
+		    "serial port not opened\n", err_len-1);
+		throw err_msg;
 	}
 
 	assert(buff != NULL);
