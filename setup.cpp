@@ -1,6 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004 Zilog, Inc.
  *
- * $Id: setup.cpp,v 1.1 2004/08/03 14:23:48 jnekl Exp $
+ * $Id: setup.cpp,v 1.2 2004/08/06 14:38:33 jnekl Exp $
  *
  * This file initializes the debugger enviroment by reading
  * settings from a config file and by parsing command-line
@@ -703,7 +703,12 @@ int init(int argc, char **argv)
 	}
 	#endif
 
-	ez8->stop();
+	try {
+		ez8->stop();
+	} catch(char *err) {
+		fprintf(stderr, "%s", err);
+		return -1;
+	}
 
 	return 0;
 }
