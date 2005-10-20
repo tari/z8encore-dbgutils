@@ -1,6 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004 Zilog, Inc.
  *
- * $Id: trace.cpp,v 1.1 2004/08/03 14:23:48 jnekl Exp $
+ * $Id: trace.cpp,v 1.2 2005/10/20 18:39:37 jnekl Exp $
  *
  * These routines are used to display trace frames for the
  * Z8 Encore emulator. This is used for diagnostic purposes only.
@@ -39,11 +39,11 @@ extern char *get_inst_str(uint16_t);
 
 bool trce_available(void)
 {
-	uint16_t dbgrev;
+	uint16_t revid;
 
-	dbgrev = ez8->rd_dbgrev();
+	revid = ez8->rd_revid();
 
-	if(dbgrev & 0x8000) {
+	if(revid & 0x8000) {
 		return 1;
 	} else {
 		return 0;

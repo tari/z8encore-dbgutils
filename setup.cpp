@@ -1,6 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004 Zilog, Inc.
  *
- * $Id: setup.cpp,v 1.5 2005/01/19 20:58:51 jnekl Exp $
+ * $Id: setup.cpp,v 1.6 2005/10/20 18:39:37 jnekl Exp $
  *
  * This file initializes the debugger enviroment by reading
  * settings from a config file and by parsing command-line
@@ -67,11 +67,11 @@ int verbose;
 #endif
 
 #ifndef	DEFAULT_BAUDRATE
-#ifndef	_WIN32
-#define	DEFAULT_BAUDRATE	115200
-#else
 #define	DEFAULT_BAUDRATE	57600
 #endif
+
+#ifndef	ALT_BAUDRATE
+#define ALT_BAUDRATE		4800
 #endif
 
 #ifndef	DEFAULT_MTU
@@ -522,7 +522,7 @@ int connect(void)
 	}
 
 	clk = (int)clock;
-	if(clk < 20000 || clk > 65000000) {
+	if(clk < 32000 || clk > 20000000) {
 		fprintf(stderr, "Clock %d out of range\n", clk);
 		return -1;
 	}
@@ -541,25 +541,18 @@ int connect(void)
 			return -1;
 		}
 		if(!baudrate) {
-			fprintf(stderr, "Unknown baudrate.\n");
-			return -1;
-		}
-		baud = strtol(baudrate, &tail, 0);
-		if(!tail || *tail || tail == baudrate) {
-			fprintf(stderr, "Invalid baudrate \"%s\"\n", 
-			    baudrate);
-			return -1;
-		}
-
-		if(baud < clk / 512 || baud > clk/4) {
-			fprintf(stderr, "Baudrate out of range for clock "
-			    "frequency.\n");
-			fprintf(stderr, "Baudrate should be between "
-			    "clock/512 and clock/4\n");
-			return -1;
+			baud = DEFAULT_BAUDRATE;
+		} else {
+			baud = strtol(baudrate, &tail, 0);
+			if(!tail || *tail || tail == baudrate) {
+				fprintf(stderr, "Invalid baudrate \"%s\"\n", 
+				    baudrate);
+				return -1;
+			}
 		}
 
 		if(!strcasecmp(device, "auto")) {
+			uint16_t revid;
 			bool found = 0;
 
 			printf("Auto-searching for device ...\n");
@@ -585,10 +578,32 @@ int connect(void)
 				found = 1;
 				break;
 			}
+
 			if(!found) {
-				printf("Could not find device "
-				    "during autosearch\n");
+				printf(
+"Could not find dongle during autosearch.\n");
 				return -1;
+			}
+
+			try {
+				revid = ez8->rd_revid();
+			} catch(char *err) {
+				baud = ALT_BAUDRATE;
+				ez8->set_baudrate(baud);
+				ez8->reset_link();
+				try {
+					revid = ez8->rd_revid();
+				} catch(char *err) {
+					printf(
+"Found dongle, but did not receive response from device.\n");
+					return -1;
+				}
+			}
+			if(ez8->cached_reload() && 
+			   ez8->cached_sysclk() > 115200*8) {
+				baud = 115200;
+				ez8->set_baudrate(baud);
+				ez8->reset_link();
 			}
 		} else {
 			try {
@@ -607,6 +622,7 @@ int connect(void)
 				return -1;
 			}
 		}
+
 		printf("Connected to %s @ %d\n", device, baud);
 
 	} else if(!strcasecmp(connection, "parport")) {
@@ -652,6 +668,7 @@ int connect(void)
 		    connection);
 		return -1;
 	}
+
 
 	return 0;
 }

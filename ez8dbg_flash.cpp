@@ -1,6 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004 Zilog, Inc.
  *
- * $Id: ez8dbg_flash.cpp,v 1.2 2004/12/01 01:26:49 jnekl Exp $
+ * $Id: ez8dbg_flash.cpp,v 1.3 2005/10/20 18:39:37 jnekl Exp $
  *
  * This implements the flash routines of the debugger api.
  */
@@ -76,11 +76,9 @@ void ez8dbg::rd_mem(uint16_t address, uint8_t *data, size_t size)
 		throw err_msg;
 	}
 
-	if(memcache_enabled) {
-		cache_crc();
-		cache_memcrc();
+	if(memcache_enabled && memory_size()) {
 
-		if(crc == memcrc) {
+		if(cached_crc() == cached_memcrc()) {
 			size_t length;
 
 			length = memory_size();
@@ -222,14 +220,14 @@ void ez8dbg::wr_mem(uint16_t address, const uint8_t *data, size_t size)
 	 */
 
 	/* validate memory cache */
-	if(memcache_enabled) {
-		cache_crc();
-		cache_memcrc();
+	if(memcache_enabled && memory_size()) {
+		cached_crc();
+		cached_memcrc();
 	}
 
 	/* if memory cache not enabled or cache is stale,
 	 * read memory out of device */
-	if(!memcache_enabled || crc != memcrc) {
+	if(!memcache_enabled || !memory_size() || crc != memcrc) {
 		rd_mem(block_start, main_mem + block_start, block_length);
 	}
 
@@ -253,10 +251,8 @@ void ez8dbg::wr_mem(uint16_t address, const uint8_t *data, size_t size)
 	flash_lock();
 
 	/* verify data */
-	if(memcache_enabled && crc == memcrc) {
-		cache_crc();
-		cache_memcrc();
-		if(crc != memcrc) {
+	if(memcache_enabled && memory_size() && crc == memcrc) {
+		if(cached_crc() != cached_memcrc()) {
 			strncpy(err_msg, "Write memory failed\n"
 			    "verify with crc failed\n", err_len-1);
 			throw err_msg;
@@ -305,8 +301,8 @@ void ez8dbg::rd_info(uint16_t address, uint8_t *buff, size_t size)
 	save_flash_state(regs);
 	wr_regs(EZ8_FIF_BASE + 1, fpsel, 1);
 
-	cache_dbgrev();
-	switch(dbgrev) {
+	
+	switch(cached_revid()) {
 	case 0x0100:
 	case 0x8100:
 		ez8ocd::rd_data(address+0xff80, buff, size);
@@ -359,8 +355,7 @@ void ez8dbg::wr_info(uint16_t address, const uint8_t *data, size_t size)
 
 	memset(info_mem, 0xff, EZ8MEM_PAGESIZE);
 
-	cache_dbgrev();
-	switch(dbgrev) {
+	switch(cached_revid()) {
 	case 0x0100:
 	case 0x8100:
 		ez8ocd::rd_data(0xff80, info_mem, 0x80);
@@ -381,7 +376,7 @@ void ez8dbg::wr_info(uint16_t address, const uint8_t *data, size_t size)
 
 	/* write data block to memory */
 	flash_setup(0x80);
-	switch(dbgrev) {
+	switch(cached_revid()) {
 	case 0x0100:
 	case 0x8100:
 		ez8ocd::wr_data(0xff80, info_mem, 0x80);
@@ -394,7 +389,7 @@ void ez8dbg::wr_info(uint16_t address, const uint8_t *data, size_t size)
 	flash_lock();
 
 	/* verify data */
-	switch(dbgrev) {
+	switch(cached_revid()) {
 	case 0x0100:
 	case 0x8100:
 		ez8ocd::rd_data(0xff80, buffer, 0x80);

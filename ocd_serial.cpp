@@ -1,6 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004 Zilog, Inc.
  *
- * $Id: ocd_serial.cpp,v 1.2 2004/12/01 01:26:49 jnekl Exp $
+ * $Id: ocd_serial.cpp,v 1.3 2005/10/20 18:39:37 jnekl Exp $
  *
  * This class implements the serial interface module for the
  * Z8 Encore On-Chip Debugger.
@@ -57,7 +57,10 @@ void ocd_serial::connect(const char *device, int baudrate)
 	serialport::parity = serialport::none;
 	serialport::stopbits = serialport::one;
 	serialport::flowcontrol = 0;
-	serialport::readtimeout = 65536 * 1000 / baudrate / 4 + 100;
+	serialport::timeout = 256 * 1000 * 10 / baudrate;
+	if(!serialport::timeout) {
+		serialport::timeout = 1;
+	}
 
 	try {
 		serialport::configure();
@@ -81,6 +84,7 @@ void ocd_serial::connect(const char *device, int baudrate)
 
 void ocd_serial::read(uint8_t *buff, size_t size)
 {
+	int t;
 	int bytes_read;
 
 	if(!open) {
@@ -93,6 +97,13 @@ void ocd_serial::read(uint8_t *buff, size_t size)
 		strncpy(err_msg, "Cannot read from on-chip debugger\n"
 		    "link needs to be reset first\n", err_len-1);
 		throw err_msg;
+	}
+
+	/* intelligently increase timout only when needed */
+	t = 1000 * 3 / 2 * 10 * size / serialport::baudrate;
+	if(t > serialport::timeout) {
+		serialport::timeout = t;
+		serialport::configure();
 	}
 
 	try {
@@ -131,6 +142,7 @@ void ocd_serial::read(uint8_t *buff, size_t size)
 
 void ocd_serial::write(const uint8_t *buff, size_t size)
 {
+	int t;
 	uint8_t verify[BUFSIZ];
 
 	assert(buff != NULL);
@@ -153,6 +165,13 @@ void ocd_serial::write(const uint8_t *buff, size_t size)
 			up = 0;
 			throw err;
 		}
+	}
+
+	/* intelligently increase timout only when needed */
+	t = 1000 * 3 / 2 * 10 * size / serialport::baudrate;
+	if(t > serialport::timeout) {
+		serialport::timeout = t;
+		serialport::configure();
 	}
 
 	try {
@@ -232,6 +251,30 @@ void ocd_serial::reset(void)
 	write(autobaud, sizeof(autobaud));
 
 	return;
+}
+
+/**************************************************************
+ * set_timeout() sets the read timeout
+ */
+
+void ocd_serial::set_timeout(int mstimeout)
+{
+	serialport::timeout = mstimeout;
+	serialport::configure();
+}
+
+/**************************************************************
+ * set_baudrate() sets the baudrate
+ */
+
+void ocd_serial::set_baudrate(int baud)
+{
+	serialport::baudrate = baud;
+	serialport::timeout = 256 * 1000 * 10 / baud;
+	if(!serialport::timeout) {
+		serialport::timeout = 1;
+	}
+	serialport::configure();
 }
 
 /**************************************************************

@@ -1,6 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004 Zilog, Inc.
  *
- * $Id: ocd_tcpip.cpp,v 1.3 2004/12/01 01:26:49 jnekl Exp $
+ * $Id: ocd_tcpip.cpp,v 1.4 2005/10/20 18:39:37 jnekl Exp $
  *
  * This is the tcpip ocd connection.
  */
@@ -1009,7 +1009,20 @@ void ocd_tcpip::write(const uint8_t *data, size_t size)
 
 int ocd_tcpip::link_speed(void)
 {
+	/* TODO: add "LINK SPEED" to tcp/ip protocol */
 	return 0;
+}
+
+void ocd_tcpip::set_timeout(int)
+{
+	/* TODO: add "SET TIMEOUT" to tcp/ip protocol */
+	return;
+}
+
+void ocd_tcpip::set_baudrate(int)
+{
+	/* TODO: add "SET BAUDRATE" to tcp/ip protocol */
+	return;
 }
 
 bool ocd_tcpip::available(void)

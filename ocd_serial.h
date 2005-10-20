@@ -1,6 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004 Zilog, Inc.
  *
- * $Id: ocd_serial.h,v 1.2 2004/12/01 01:26:49 jnekl Exp $
+ * $Id: ocd_serial.h,v 1.3 2005/10/20 18:39:37 jnekl Exp $
  *
  * This class implements the serial interface module for the
  * ez8 on-chip debugger.
@@ -30,6 +30,8 @@ public:
 
 	void connect(const char *, int);
 	void reset(void);
+	void set_timeout(int);
+	void set_baudrate(int);
 
 	bool link_open(void);
 	bool link_up(void);

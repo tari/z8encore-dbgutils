@@ -1,6 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004 Zilog, Inc.
  *
- * $Id: ez8dbg.cpp,v 1.4 2004/12/01 22:42:33 jnekl Exp $
+ * $Id: ez8dbg.cpp,v 1.5 2005/10/20 18:39:37 jnekl Exp $
  *
  * This implements the debugger api. It makes calls to the
  * lower level ez8ocd to do all its work.
@@ -37,7 +37,7 @@ ez8dbg::ez8dbg(void)
 	cache = 0;
 	memcache_enabled = 1;
 
-	dbgrev = 0x0000;
+	revid = 0x0000;
 	dbgstat = 0x00;
 	dbgctl = 0x00;
 	pc = 0x0000;
@@ -45,6 +45,7 @@ ez8dbg::ez8dbg(void)
 	reload = 0x0000;
 	sysclk = 0;
 	freq = 0;
+	timeout = 0;
 
 	memcrc = 0x0000;
 	memsize = 0;
@@ -113,8 +114,7 @@ bool ez8dbg::state(enum dbg_state state)
 
 	/* check if we are fully stopped and in debug mode */
 	case state_stopped:
-		cache_dbgctl();
-		if(dbgctl & DBGCTL_DBG_MODE) {
+		if(cached_dbgctl() & DBGCTL_DBG_MODE) {
 			return 1;
 		}
 		return 0;
@@ -124,13 +124,11 @@ bool ez8dbg::state(enum dbg_state state)
 	 *   This happens when interrupts are being serviced 
 	 *   in the background. */
 	case state_running:
-		cache_dbgstat();
-		cache_dbgctl();
-		if(dbgctl & DBGCTL_DBG_MODE) {
+		if(cached_dbgctl() & DBGCTL_DBG_MODE) {
 			/* fully stopped */
 			return 0;
 		}
-		if(dbgstat & DBGSTAT_STOPPED) {
+		if(cached_dbgstat() & DBGSTAT_STOPPED) {
 			/* stopped at breakpoint */
 			return 0;
 		}
@@ -138,16 +136,14 @@ bool ez8dbg::state(enum dbg_state state)
 
 	/* check if read protect enabled */
 	case state_protected:
-		cache_dbgstat();
-		if(dbgstat & DBGSTAT_RD_PROTECT) {
+		if(cached_dbgstat() & DBGSTAT_RD_PROTECT) {
 			return 1;
 		}
 		return 0;
 
 	/* check if trace available */
 	case state_trace:
-		cache_dbgrev();
-		if(dbgrev & 0xc000) {
+		if(cached_revid() & 0x8000) {
 			/* assume all emulator versions 8000-8FFF
 			 * have trace */
 			return 1;
@@ -169,25 +165,25 @@ bool ez8dbg::state(enum dbg_state state)
 void ez8dbg::flush_cache(void)
 {
 	cache = 0;
-
-	return;
 }
 
 /**************************************************************
- * This will read and cache the dbgrev if it is not already
- * cached.
+ * This will read the revision identifier.
  */
 
-void ez8dbg::cache_dbgrev(void)
+uint16_t ez8dbg::rd_revid(void)
 {
-	if(cache & DBGREV_CACHED) {
-		return;
+	revid = ez8ocd::rd_revid();
+	cache |= REVID_CACHED;
+	return revid;
+}
+
+uint16_t ez8dbg::cached_revid(void)
+{
+	if(!(cache & REVID_CACHED)) {
+		rd_revid();
 	}
-
-	dbgrev = rd_dbgrev();
-	cache |= DBGREV_CACHED;
-
-	return;
+	return revid;
 }
 
 /**************************************************************
@@ -195,16 +191,13 @@ void ez8dbg::cache_dbgrev(void)
  * not already cached.
  */
 
-void ez8dbg::cache_dbgctl(void)
+uint8_t ez8dbg::cached_dbgctl(void)
 {
-	if(cache & DBGCTL_CACHED) {
-		return;
+	if(!(cache & DBGCTL_CACHED)) {
+		dbgctl = rd_dbgctl();
+		cache |= DBGCTL_CACHED;
 	}
-	
-	dbgctl = rd_dbgctl();
-	cache |= DBGCTL_CACHED;
-
-	return;
+	return dbgctl;
 }
 
 /**************************************************************
@@ -212,49 +205,13 @@ void ez8dbg::cache_dbgctl(void)
  * already cached.
  */
 
-void ez8dbg::cache_dbgstat(void)
+uint8_t ez8dbg::cached_dbgstat(void)
 {
-	if(cache & DBGSTAT_CACHED) {
-		return;
+	if(!(cache & DBGSTAT_CACHED)) {
+		dbgstat = ez8ocd::rd_dbgstat();
+		cache |= DBGSTAT_CACHED;
 	}
-	
-	dbgstat = rd_dbgstat();
-	cache |= DBGSTAT_CACHED;
-
-	return;
-}
-
-/**************************************************************
- * This will cache the program counter if it is not already cached.
- */
-
-void ez8dbg::cache_pc(void)
-{
-	if(cache & PC_CACHED) {
-		return;
-	}
-
-	pc = rd_pc();
-	cache |= PC_CACHED;
-
-	return;
-}
-
-/**************************************************************
- * This will read and cache the remote memory crc if it is
- * not already cached.
- */
-
-void ez8dbg::cache_crc(void)
-{
-	if(cache & CRC_CACHED) {
-		return;
-	}
-
-	crc = rd_crc();
-	cache |= CRC_CACHED;
-
-	return;
+	return dbgstat;
 }
 
 /**************************************************************
@@ -262,16 +219,13 @@ void ez8dbg::cache_crc(void)
  * already cached.
  */
 
-void ez8dbg::cache_memsize(void)
+uint8_t ez8dbg::cached_memsize(void)
 {
-	if(cache & MEMSIZE_CACHED) {
-		return;
+	if(!(cache & MEMSIZE_CACHED)) {
+		memsize = rd_memsize();
+		cache |= MEMSIZE_CACHED;
 	}
-
-	memsize = rd_memsize();
-	cache |= MEMSIZE_CACHED;
-
-	return;
+	return memsize;
 }
 
 /**************************************************************
@@ -282,13 +236,14 @@ int ez8dbg::memory_size(void)
 {
 	int size;
 
-	cache_dbgrev();
-	cache_memsize();
-	switch(dbgrev) {
+	switch(cached_revid() & 0x7fff) {
 	case 0x0124: 	
 	case 0x0128: 	
 	case 0x012A: 	
-		switch(memsize & 0x07) {
+	case 0x012E: 	
+	case 0x012F: 	
+	case 0x0130: 	
+		switch(cached_memsize() & 0x07) {
 		case 0x00:
 			size = 0x0400;
 			break;
@@ -315,8 +270,15 @@ int ez8dbg::memory_size(void)
 			abort();
 		}
 		break;
-	default:
-		switch(memsize & 0x07) {
+	case 0x0100:
+	case 0x0110:
+	case 0x0120:
+	case 0x0121:
+	case 0x0122:
+	case 0x0123:
+	case 0x0125:
+	case 0x0126:
+		switch(cached_memsize() & 0x07) {
 		case 0x00:
 			size = 0x0800;
 			break;
@@ -345,6 +307,8 @@ int ez8dbg::memory_size(void)
 			abort();
 		}
 		break;
+	default:
+		size = 0;
 	}
 
 	return size;
@@ -355,39 +319,50 @@ int ez8dbg::memory_size(void)
  * already cached.
  */
 
-void ez8dbg::cache_memcrc(void)
+uint16_t ez8dbg::cached_memcrc(void)
 {
-	int size;
+	if(!(cache & MEMCRC_CACHED)) {
+		int size;
 
-	if(cache & MEMCRC_CACHED) {
-		return;
+		/* get memory size */
+		size = memory_size();
+		if(!size) {
+			/* calculate crc on memory cache */
+			memcrc = crc_ccitt(0x0000, main_mem, size);
+			cache |= MEMCRC_CACHED;
+		} else {
+			memcrc = 0;
+		}
 	}
 
-	/* get memory size */
-	size = memory_size();
-
-	/* calculate crc on memory cache */
-	memcrc = crc_ccitt(0x0000, main_mem, size);
-	cache |= MEMCRC_CACHED;
-
-	return;
+	return memcrc;
 }
 
 /**************************************************************
  * This will cache the baud reload register.
+ */
+
+uint16_t ez8dbg::cached_reload(void)
+{
+	if(!(cache & RELOAD_CACHED)) {
+		reload = rd_reload();
+		cache |= RELOAD_CACHED;
+	}
+	return reload;
+}
+
+/**************************************************************
+ * This will read the reload register.
  *
  * This register does not exist on initial versions of the
  * on-chip debugger.
  */
 
-void ez8dbg::cache_reload(void)
+uint16_t ez8dbg::rd_reload(void)
 {
-	if(cache & RELOAD_CACHED) {
-		return;
-	}
+	uint16_t rld;
 
-	cache_dbgrev();
-	switch(dbgrev) {
+	switch(cached_revid() & 0x7fff) {
 	case 0x0000:
 	case 0x0100:
 	case 0x0110:
@@ -398,46 +373,45 @@ void ez8dbg::cache_reload(void)
 	case 0x0124:
 	case 0x0125:
 	case 0x0127:
+	case 0x0128:
 	case 0x012A:
 	case 0x012B:
-		reload = 0x0000;
+	case 0x012E:
+		rld = 0x0000;
 		break;
 	case 0x0126:
+	case 0x012D:
 	default:
-		reload = ez8ocd::rd_reload();
+		rld = ez8ocd::rd_reload();
 		break;
 	}
-	cache |= RELOAD_CACHED;
 
-	return;
+	return rld;
 }
 
 /**************************************************************
  * This will try to auto-detect the system clock frequency.
  */
 
-void ez8dbg::cache_sysclk(void)
+int ez8dbg::cached_baudrate(void)
 {
-	int baudrate;
-
-	if(cache & SYSCLK_CACHED) {
-		return;
+	if(!(cache & BAUDRATE_CACHED)) {
+		baudrate = link_speed();
+		cache |= BAUDRATE_CACHED;
 	}
-	
-	cache_reload();
-	if(!reload) {
-		return;
+	return baudrate;
+}
+
+int ez8dbg::cached_sysclk(void)
+{
+	if(!(cache & SYSCLK_CACHED)) {
+		if(!cached_reload() || !cached_baudrate()) {
+			return 0;
+		}
+		sysclk = reload * baudrate / 8;
+		cache |= SYSCLK_CACHED;
 	}
-
-	baudrate = link_speed();
-	if(!baudrate) {
-		return;
-	}
-
-	sysclk = reload * baudrate / 8;
-	cache |= SYSCLK_CACHED;
-
-	return;
+	return sysclk;
 }
 
 /**************************************************************
@@ -446,27 +420,35 @@ void ez8dbg::cache_sysclk(void)
 
 void ez8dbg::cache_freq(void)
 {
-	if(cache & FREQ_CACHED) {
-		return;
+	if(!(cache & FREQ_CACHED)) {
+		cached_sysclk();
+		freq = sysclk / 1000;
+		cache |= FREQ_CACHED;
 	}
-	
-	cache_sysclk();
-
-	freq = sysclk / 1000;
-	cache |= FREQ_CACHED;
-
-	return;
 }
 
 /**************************************************************
- * This will return the calculated system clock based upon
- * the baudrate and .
+ * Set timeout value if it hasn't already been set, or if it
+ * has changed.
  */
 
-int ez8dbg::get_sysclk(void)
+void ez8dbg::set_timeout(void)
 {
-	cache_sysclk();
-	return sysclk;
+	int newtimeout;
+	if(cache & TIMEOUT_CACHED) {
+		return;
+	}
+	if(cached_reload() && cached_sysclk()) {
+		newtimeout = 65536*3/2*1000/sysclk;
+	} else {
+		newtimeout = 65536*3/2*1000/32768;
+	}
+	/* only lengthen timeout, don't shorten it */
+	if(newtimeout > timeout) {
+		ez8ocd::set_timeout(newtimeout);
+		timeout = newtimeout;
+	}
+	cache |= TIMEOUT_CACHED;
 }
 
 /**************************************************************
@@ -477,8 +459,13 @@ void ez8dbg::reset_chip(void)
 {
 	time_t start;
 
-	cache_dbgctl();
-	wr_dbgctl(dbgctl | DBGCTL_RST);
+	cached_dbgctl();
+
+	try {
+		wr_dbgctl(dbgctl | DBGCTL_RST);
+	} catch(char *err) { 
+		reset_link();
+	}
 
 	cache = 0;
 	start = time(NULL);
@@ -486,7 +473,7 @@ void ez8dbg::reset_chip(void)
 	do {
 		usleep(5000);
 		cache &= ~DBGCTL_CACHED;
-		cache_dbgctl();
+		cached_dbgctl();
 	} while(dbgctl & DBGCTL_RST && time(NULL)-start < RESET_TIMEOUT);
 
 	if(dbgctl & DBGCTL_RST) {
@@ -531,12 +518,12 @@ void ez8dbg::stop(void)
 	/* cache dbgctl to see if already stopped */
 	cache &= ~DBGCTL_CACHED;
 	try {
-		cache_dbgctl();
+		cached_dbgctl();
 	} catch(char *err) {
 		/* if in stopmode, part will reset when we try to read it.
 		 * reset link and try again */
 		ez8ocd::reset_link();
-		cache_dbgctl();
+		cached_dbgctl();
 	}
 
 	/* if part is not stopped, stop it */
@@ -546,7 +533,7 @@ void ez8dbg::stop(void)
 		ctl = DBGCTL_DBG_MODE | DBGCTL_BRK_EN;
 		wr_dbgctl(ctl);
 		cache &= ~DBGCTL_CACHED;
-		cache_dbgctl();
+		cached_dbgctl();
 		if(dbgctl != ctl) {
 			strncpy(err_msg, 
 			    "Write on-chip debugger control register failed\n"
@@ -577,8 +564,7 @@ void ez8dbg::run(void)
 	}
 
 	/* check if we can put into run mode */
-	cache_dbgrev();
-	switch(dbgrev) {
+	switch(cached_revid()) {
 	case 0x0100:
 	case 0x0110:
 	case 0x0120:
@@ -592,8 +578,7 @@ void ez8dbg::run(void)
 	}
 
 	/* check if breakpoint set where we are at */
-	cache_pc();
-	if(breakpoint_set(pc)) {
+	if(breakpoint_set(cached_pc())) {
 		step();
 	}
 
@@ -626,16 +611,14 @@ void ez8dbg::run_to(uint16_t addr)
 	}
 
 	/* if stopped at breakpoint, step over it */
-	cache_pc();
-	if(breakpoint_set(pc)) {
+	if(breakpoint_set(cached_pc())) {
 		step();
 	}
 
 	/* set address to stop at */
 	dbgctl = DBGCTL_BRK_EN | DBGCTL_BRK_ACK;
 
-	cache_dbgrev();
-	switch(dbgrev) {
+	switch(cached_revid()) {
 	case 0x0100:
 	case 0x0110:
 		/* these revisions do not have a hardware breakpoint 
@@ -676,7 +659,7 @@ void ez8dbg::run_clks(uint16_t clks)
 		throw err_msg;
 	}
 
-	switch(dbgrev) {
+	switch(cached_revid()) {
 	case 0x0100:
 	case 0x0110:
 		/* these revisions do not have a counter breakpoint */
@@ -732,11 +715,11 @@ int ez8dbg::isrunning(void)
  
 	cache &= ~DBGCTL_CACHED;
 	try {
-		cache_dbgctl();
+		cached_dbgctl();
 	} catch(char *err1) {
 		ez8ocd::reset_link();
 		try {
-			cache_dbgctl();
+			cached_dbgctl();
 		} catch(char *err2) {
 			throw err1;
 		}
@@ -772,12 +755,10 @@ void ez8dbg::step(void)
 		throw err_msg;
 	}
 
-	cache_dbgrev();
-	switch(dbgrev) {
+	switch(cached_revid()) {
 	case 0x0100:
 		/* Workaround for z8f640ba pending interrupt bug */
-		cache_pc();
-		if(breakpoint_set(pc)) {
+		if(breakpoint_set(cached_pc())) {
 			int i;
 			uint8_t irqctl;
 
@@ -821,8 +802,7 @@ void ez8dbg::step(void)
 		break;
 
 	default:
-		cache_pc();
-		if(breakpoint_set(pc)) {
+		if(breakpoint_set(cached_pc())) {
 			int i;
 
 			for(i=0; i<num_breakpoints; i++) {
@@ -873,8 +853,7 @@ void ez8dbg::next(void)
 	}
 
 	/* get instruction at program counter */
-	cache_pc();
-	rd_mem(pc, buff, 1);
+	rd_mem(cached_pc(), buff, 1);
 
 	/* determine if we need to set a breakpoint */
 	switch(*buff) {
@@ -921,23 +900,30 @@ uint16_t ez8dbg::rd_cntr(void)
 }
 
 /**************************************************************
- * This will read and cache the remote memory crc if it is
- * not already cached.
+ * This will read the remote memory crc.
  */
 
 uint16_t ez8dbg::rd_crc(void)
 {
-	uint16_t cyclic_redundancy_check;
-
 	if(!state(state_stopped)) {
 		strncpy(err_msg, "Cannot read crc\n"
 		    "device is running\n", err_len-1);
 		throw err_msg;
 	}
 
-	cyclic_redundancy_check = ez8ocd::rd_crc();
+	set_timeout();
+	crc = ez8ocd::rd_crc();
+	cache |= CRC_CACHED;
 
-	return cyclic_redundancy_check;
+	return crc;
+}
+
+uint16_t ez8dbg::cached_crc(void)
+{
+	if(!(cache & CRC_CACHED)) {
+		rd_crc();
+	}
+	return crc;
 }
 
 /**************************************************************
@@ -946,8 +932,6 @@ uint16_t ez8dbg::rd_crc(void)
 
 uint16_t ez8dbg::rd_pc(void)
 {
-	uint16_t program_counter;
-
 	if(!state(state_stopped)) {
 		strncpy(err_msg, 
 		    "Cannot read program counter\n"
@@ -962,9 +946,18 @@ uint16_t ez8dbg::rd_pc(void)
 		throw err_msg;
 	}
 
-	program_counter = ez8ocd::rd_pc();
+	pc = ez8ocd::rd_pc();
+	cache |= PC_CACHED;
 
-	return program_counter;
+	return pc;
+}
+
+uint16_t ez8dbg::cached_pc(void)
+{
+	if(!(cache & PC_CACHED)) {
+		rd_pc();
+	}
+	return pc;
 }
 
 /**************************************************************
@@ -987,8 +980,7 @@ void ez8dbg::wr_pc(uint16_t address)
 
 	cache &= ~PC_CACHED;
 	ez8ocd::wr_pc(address);
-	cache_pc();
-	if(pc != address) {
+	if(cached_pc() != address) {
 		strncpy(err_msg, "Write program counter failed\n"
 		    "readback verify failed\n", err_len-1);
 		throw err_msg;

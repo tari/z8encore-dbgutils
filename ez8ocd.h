@@ -1,6 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004 Zilog, Inc.
  *
- * $Id: ez8ocd.h,v 1.3 2004/12/01 22:42:33 jnekl Exp $
+ * $Id: ez8ocd.h,v 1.4 2005/10/20 18:39:37 jnekl Exp $
  *
  * This class implements the basic ez8 on-chip debugger 
  * commands.
@@ -110,11 +110,13 @@ public:
 	bool link_up(void);
 	int  link_speed(void);
 	void reset_link(void);
+	void set_timeout(int);
+	void set_baudrate(int);
 
 	void read(uint8_t *, size_t);
 	void write(const uint8_t *, size_t);
 
-	uint16_t rd_dbgrev(void);
+	uint16_t rd_revid(void);
 	uint16_t rd_reload(void);
 	uint8_t rd_dbgstat(void);
 };

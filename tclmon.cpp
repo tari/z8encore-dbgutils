@@ -1,4 +1,4 @@
-/* $Id: tclmon.cpp,v 1.1 2005/01/19 20:59:01 jnekl Exp $
+/* $Id: tclmon.cpp,v 1.2 2005/10/20 18:39:37 jnekl Exp $
  *
  * This implements the tcl api.
  */
@@ -21,11 +21,12 @@
 extern ez8dbg *ez8;
 static uint8_t *buff = NULL;
 
-enum tcl_cmds { dbg_null, dbg_rd_id, dbg_run, 
+enum tcl_cmds { dbg_null, dbg_rd_id, dbg_run, dbg_go, dbg_stop,
     dbg_ld_hexfile, dbg_rd_hexfile, dbg_wr_hexfile,
     dbg_reset_chip, dbg_reset_link, dbg_rd_pc, dbg_wr_pc, 
     dbg_rd_reg, dbg_wr_reg, dbg_rd_regs, dbg_wr_regs, 
-    dbg_rd_mem, dbg_wr_mem, dbg_prog_mem, dbg_erase_mem };
+    dbg_rd_mem, dbg_wr_mem, dbg_prog_mem, dbg_erase_mem, dbg_rd_crc,
+    dbg_rd_testmode, dbg_wr_testmode };
 
 /* execute command */
 
@@ -51,7 +52,7 @@ int dbg_cmd(ClientData clientData,
 			Tcl_WrongNumArgs(interp, 1, objv, NULL);
 			return TCL_ERROR;
 		}
-		ez8->reset_chip();
+		ez8->reset_link();
 		break;
 	}
 	case dbg_rd_id: {
@@ -62,20 +63,44 @@ int dbg_cmd(ClientData clientData,
 			Tcl_WrongNumArgs(interp, 1, objv, NULL);
 			return TCL_ERROR;
 		}
-		id = ez8->rd_dbgrev();
+		id = ez8->rd_revid();
 		obj = Tcl_NewIntObj(id);
 		Tcl_SetObjResult(interp, obj);
 		break;
 	}
 	case dbg_run: {
+		int delay;
 		if(objc != 1) {
 			Tcl_WrongNumArgs(interp, 1, objv, NULL);
 			return TCL_ERROR;
 		}
 		ez8->run();
+		delay = 2;
+		#define MAX_DELAY 250000
 		while(ez8->isrunning()) {
-			usleep(250000);
+			usleep(delay);
+			delay += delay / 2;
+			if(delay > MAX_DELAY) {
+				delay = MAX_DELAY;
+			}
 		}
+		#undef MAX_DELAY
+		break;
+	}
+	case dbg_go: {
+		if(objc != 1) {
+			Tcl_WrongNumArgs(interp, 1, objv, NULL);
+			return TCL_ERROR;
+		}
+		ez8->run();
+		break;
+	}
+	case dbg_stop: {
+		if(objc != 1) {
+			Tcl_WrongNumArgs(interp, 1, objv, NULL);
+			return TCL_ERROR;
+		}
+		ez8->stop();
 		break;
 	}
 	case dbg_ld_hexfile: {
@@ -332,6 +357,52 @@ int dbg_cmd(ClientData clientData,
 		ez8->wr_mem(addr, data, size);
 		break;
 	}
+	case dbg_rd_crc: {
+		Tcl_Obj *obj;
+		uint16_t crc;
+
+		if(objc != 1) {
+			Tcl_WrongNumArgs(interp, 1, objv, NULL);
+			return TCL_ERROR;
+		}
+		crc = ez8->rd_crc();
+		obj = Tcl_NewIntObj(crc);
+		Tcl_SetObjResult(interp, obj);
+		break;
+	}
+	case dbg_rd_testmode: {
+		extern uint8_t rd_testmode(void);
+		Tcl_Obj *obj;
+		uint8_t testmode;
+
+		if(objc != 1) {
+			Tcl_WrongNumArgs(interp, 1, objv, NULL);
+			return TCL_ERROR;
+		}
+		testmode = rd_testmode();
+		obj = Tcl_NewIntObj(testmode);
+		Tcl_SetObjResult(interp, obj);
+		break;
+	}
+	case dbg_wr_testmode: {
+		extern void wr_testmode(uint8_t data);
+		int testmode, status;
+
+		if(objc != 2) {
+			Tcl_WrongNumArgs(interp, 1, objv, "testmode");
+			return TCL_ERROR;
+		}
+		status = Tcl_GetIntFromObj(interp, objv[1], &testmode);
+		if(status != TCL_OK) {
+			return status;
+		}
+		if(testmode > 0xff || testmode < 0) {
+			Tcl_SetResult(interp, "Invalid value", NULL);
+			return TCL_ERROR;
+		}
+		wr_testmode(testmode);
+		break;
+	}
 	default:
 		printf("Command %s not implemented\n", 
 		    Tcl_GetString(objv[0]));
@@ -374,6 +445,10 @@ int Tcl_AppInit(Tcl_Interp *interp)
 	    (void *)dbg_rd_id, NULL);
         Tcl_CreateObjCommand(interp, "dbg_run", tcl_cmd, 
 	    (void *)dbg_run, NULL);
+        Tcl_CreateObjCommand(interp, "dbg_go", tcl_cmd, 
+	    (void *)dbg_go, NULL);
+        Tcl_CreateObjCommand(interp, "dbg_stop", tcl_cmd, 
+	    (void *)dbg_stop, NULL);
         Tcl_CreateObjCommand(interp, "dbg_ld_hexfile", tcl_cmd, 
 	    (void *)dbg_ld_hexfile, NULL);
         Tcl_CreateObjCommand(interp, "dbg_reset_chip", tcl_cmd, 
@@ -396,6 +471,12 @@ int Tcl_AppInit(Tcl_Interp *interp)
 	    (void *)dbg_rd_mem, NULL);
         Tcl_CreateObjCommand(interp, "dbg_wr_mem", tcl_cmd, 
 	    (void *)dbg_wr_mem, NULL);
+        Tcl_CreateObjCommand(interp, "dbg_rd_crc", tcl_cmd, 
+	    (void *)dbg_rd_crc, NULL);
+        Tcl_CreateObjCommand(interp, "dbg_rd_testmode", tcl_cmd, 
+	    (void *)dbg_rd_testmode, NULL);
+        Tcl_CreateObjCommand(interp, "dbg_wr_testmode", tcl_cmd, 
+	    (void *)dbg_wr_testmode, NULL);
 
         return TCL_OK;
 }

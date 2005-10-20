@@ -76,6 +76,18 @@ int ocd_parport::link_speed(void)
 	return 0;
 }
 
+void ocd_parport::set_baudrate(int baudrate)
+{
+	strncpy(err_msg, "Parallel port not implemented yet\n", err_len-1);
+	throw err_msg;
+}
+
+void ocd_parport::set_timeout(int mstimeout)
+{
+	strncpy(err_msg, "Parallel port not implemented yet\n", err_len-1);
+	throw err_msg;
+}
+
 bool ocd_parport::available(void)
 {
 	return 0;

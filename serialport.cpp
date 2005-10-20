@@ -1,6 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004 Zilog, Inc.
  *
- * $Id: serialport.cpp,v 1.5 2005/01/19 21:00:13 jnekl Exp $
+ * $Id: serialport.cpp,v 1.6 2005/10/20 18:39:37 jnekl Exp $
  *
  * This is a universial serial port api. It will work on
  * both unix and windows systems.
@@ -135,7 +135,7 @@ char *winerr(char *s, size_t n)
  * for that baudrate.
  */
 
-int serialport::baud2def(int baudrate)
+static int baud2def(int baudrate)
 {
 	const struct baudvalue *b;
 
@@ -155,7 +155,7 @@ int serialport::baud2def(int baudrate)
  * into it's baud value.
  */
 
-int serialport::def2baud(int define)
+static int def2baud(int define)
 {
 	const struct baudvalue *b;
 
@@ -184,6 +184,7 @@ serialport::serialport()
 	parity = none;
 	stopbits = one;
 	flowcontrol = 0;
+	timeout = 0;
 
 	memset(rxbuff, 0, sizeof(rxbuff));
 	len = 0;
@@ -338,6 +339,9 @@ void serialport::close(void)
 		    "serial port not opened\n", err_len-1);
 		throw err_msg;
 	}
+
+	/* call tcflush to prevent close() from hanging */
+	tcflush(fdes, TCIOFLUSH);
 
 	err = ::close(fdes);
 	if(err) {
@@ -539,8 +543,8 @@ void serialport::configure(void)
 		#endif
 	}
 
-	/* Round readtimeout up to nearest 100ms */
-	cfg.c_cc[VTIME] = readtimeout / 100 + (readtimeout % 100 ? 1 : 0);
+	/* Round timeout up to nearest 100ms */
+	cfg.c_cc[VTIME] = timeout / 100 + (timeout % 100 ? 1 : 0);
 	cfg.c_cc[VMIN] = 0;
 
 	err = tcsetattr(fdes, TCSADRAIN, &cfg);
@@ -701,9 +705,9 @@ void serialport::configure(void)
 		throw err_msg;
 	}
 
-	cto.ReadIntervalTimeout = readtimeout ? readtimeout : MAXDWORD;
-	cto.ReadTotalTimeoutMultiplier = readtimeout ? 1/baudrate + 1 : 0;
-	cto.ReadTotalTimeoutConstant = readtimeout;
+	cto.ReadIntervalTimeout = timeout ? timeout : MAXDWORD;
+	cto.ReadTotalTimeoutMultiplier = timeout ? 2*1000*10/baudrate + 1 : 0;
+	cto.ReadTotalTimeoutConstant = timeout;
 	cto.WriteTotalTimeoutMultiplier = 0;
 	cto.WriteTotalTimeoutConstant = 0;
 
@@ -847,7 +851,7 @@ void serialport::loadconfig(void)
 	}
 	#endif
 
-	readtimeout = cfg.c_cc[VTIME] * 100;
+	timeout = cfg.c_cc[VTIME] * 100;
 
 	return;
 }
@@ -972,7 +976,7 @@ void serialport::loadconfig(void)
 		throw err_msg;
 	}
 
-	readtimeout = cto.ReadIntervalTimeout == MAXDWORD ? 
+	timeout = cto.ReadIntervalTimeout == MAXDWORD ? 
 	    0 : cto.ReadIntervalTimeout;
 
 	return;
@@ -1044,7 +1048,7 @@ bool serialport::available(void)
 {
 	int ready;
 	fd_set rd_fdes;
-	struct timeval timeout;
+	struct timeval t;
 
 	if(fdes < 0) {
 		strncpy(err_msg, "Read serial port failed\n"
@@ -1055,11 +1059,11 @@ bool serialport::available(void)
 	FD_ZERO(&rd_fdes);
 	FD_SET(fdes, &rd_fdes);
 
-	timeout.tv_sec = 0;
-	timeout.tv_usec = 0;
+	t.tv_sec = 0;
+	t.tv_usec = 0;
 
 	do {
-		ready = select(FD_SETSIZE, &rd_fdes, NULL, NULL, &timeout);
+		ready = select(FD_SETSIZE, &rd_fdes, NULL, NULL, &t);
 	} while(ready < 0 && errno == EINTR);
 
 	if(ready < 0) {
@@ -1376,7 +1380,7 @@ void serialport::sendbreak(void)
 		throw err_msg;
 	}
 
-	usleep(2000);
+	usleep(250000);
 
 	return;
 }
@@ -1546,6 +1550,7 @@ bool serialport::error(void)
 	return 0;
 }
 #endif	/* _WIN32 */
+
 /**************************************************************/
 
 

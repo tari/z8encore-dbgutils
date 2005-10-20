@@ -1239,6 +1239,12 @@ Load an intel hexfile into flash memory.
 @item dbg_run
 Run until breakpoint reached.
 
+@item dbg_go
+Run and return immediately, don't wait for breakpoint.
+
+@item dbg_stop
+Stop device from running.
+
 @item dbg_rd_pc
 Read program counter.
 
@@ -1263,6 +1269,9 @@ Read memory.
 @item dbg_wr_mem
 Write memory.
 
+@item dbg_rd_crc
+Read memory crc.
+
 @end table
 
 @menu
@@ -1279,6 +1288,7 @@ Write memory.
 * dbg_wr_regs::                Write registers
 * dbg_rd_mem::                 Read memory
 * dbg_wr_mem::                 Write memory
+* dbg_rd_crc::                 Read memory crc
 @end menu
 
 @node dbg_rd_id
@@ -1440,6 +1450,17 @@ memory locations to complete the write operation.
 set addr 0x0800
 set data [ binary format "a*" "test string" ]
 dbg_wr_mem $addr $data
+@end example
+
+@node dbg_rd_crc
+@subsection dbg_rd_crc
+
+The @samp{dbg_rd_crc} command will return the memory crc.
+The crc value is returned as an integer.
+
+@example
+set crc [ dbg_rd_crc ]
+puts [ format "%04x" $crc ]
 @end example
 
 @c @node Index

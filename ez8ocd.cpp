@@ -1,6 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004 Zilog, Inc.
  *
- * $Id: ez8ocd.cpp,v 1.3 2004/12/01 22:42:33 jnekl Exp $
+ * $Id: ez8ocd.cpp,v 1.4 2005/10/20 18:39:37 jnekl Exp $
  *
  * This implements the low level functions of the Z8 Encore
  * On-Chip Debugger.
@@ -307,6 +307,24 @@ int ez8ocd::link_speed(void)
 }
 
 /**************************************************************
+ * This will set the baudrate
+ */
+
+void ez8ocd::set_baudrate(int baud)
+{
+	dbg->set_baudrate(baud);
+}
+
+/**************************************************************
+ * Set serial port timeout
+ */
+
+void ez8ocd::set_timeout(int timeout)
+{
+	dbg->set_timeout(timeout);
+}
+
+/**************************************************************
  * This will autobaud and initialize the on-chip debugger.
  */
 
@@ -339,7 +357,7 @@ void ez8ocd::new_command(void)
  * This will retrieve the ez8 DBG RevID.
  */
 
-uint16_t ez8ocd::rd_dbgrev(void)
+uint16_t ez8ocd::rd_revid(void)
 {
 	uint16_t revid;
 	uint8_t command[1];

@@ -1,6 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004 Zilog, Inc.
  *
- * $Id: serialport.h,v 1.3 2004/12/01 01:26:49 jnekl Exp $
+ * $Id: serialport.h,v 1.4 2005/10/20 18:39:37 jnekl Exp $
  *
  * This is a generic api for serial ports on both unix and
  * windows systems.
@@ -39,9 +39,6 @@ private:
 	HANDLE fdes;
 	#endif	/* _WIN32 */
 
-	static int baud2def(int);
-	static int def2baud(int);
-
 	#ifndef	_WIN32
 	void setflock(void);
 	void read_byte(unsigned char *);
@@ -58,11 +55,11 @@ protected:
 public:
 
 	int baudrate;
+	int timeout;
 	enum parity_enum { none, odd, even, mark, space } parity;
 	enum stopbits_enum { one, two } stopbits;
 	enum size_enum { five, six, seven, eight } size;
 	int flowcontrol;
-	long readtimeout;
 
 	serialport();
 	~serialport();

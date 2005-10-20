@@ -1,6 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004 Zilog, Inc.
  *
- * $Id: monitor.cpp,v 1.2 2004/12/01 01:26:49 jnekl Exp $
+ * $Id: monitor.cpp,v 1.3 2005/10/20 18:39:37 jnekl Exp $
  *
  * This implments the command line debugger api.
  */
@@ -68,14 +68,15 @@ int check_if_running(void)
 
 void display_info(void)
 {
-	uint16_t dbgrev;
+	int baudrate;
+	uint16_t revid;
 	uint16_t reload;
 	uint16_t crc;
 	int size;
 	uint8_t psi[21];
 
-	dbgrev = ez8->rd_dbgrev();
-	printf("REVISION IDENTIFIER:         %04X\n", dbgrev);
+	revid = ez8->rd_revid();
+	printf("REVISION IDENTIFIER:         %04X\n", revid);
 
 	printf("PRODUCT SPECIFICATION INDEX: ");
 	if(ez8->state(ez8->state_protected)) {
@@ -91,8 +92,10 @@ void display_info(void)
 	}
 
 	size = ez8->memory_size();
-	printf("MEMORY SIZE:                 %dk = %04X-%04X\n", 
-	    size / 1024, 0, size - 1);
+	if(size) {
+		printf("MEMORY SIZE:                 %dk = %04X-%04X\n", 
+		    size / 1024, 0, size - 1);
+	}
 
 	crc = ez8->rd_crc();
 	printf("CYCLIC REDUNDANCY CHECK:     %04X\n", crc);
@@ -101,28 +104,39 @@ void display_info(void)
 		printf("CODE PROTECT:                enabled\n");
 	}
 
-	reload = ez8->rd_reload();
-	if(reload) {
-		int clk;
-		div_t mhz, khz;
+	baudrate = ez8->cached_baudrate();
+	printf("BAUDRATE:                    %d\n", baudrate);
+	if((reload = ez8->rd_reload())) {
+		int sf;
+		char *suffix;
+		float freq;
 
 		printf("BAUDRATE RELOAD:             %04X\n", reload);
-
-		clk = ez8->get_sysclk();
-		printf("ESTIMATED FREQUENCY:         ");
-
-		mhz = div(clk, 1000000);
-		khz = div(mhz.rem, 1000);
-		
-		if(mhz.quot) {
-			printf("%d.%03d MHz\n", mhz.quot, khz.quot);
-		} else if(khz.quot) {
-			printf("%d.%03d kHz\n", khz.quot, khz.rem);
-		} else if(clk){
-			printf("%d Hz\n", clk);
+		if(reload < 10) {
+			sf = 1;
+		} else if(reload < 100) {
+			sf = 2;
+		} else if(reload < 1000) {
+			sf = 3;
+		} else if(reload < 10000) {
+			sf = 4;
 		} else {
-			printf("\n");
+			sf = 5;
 		}
+	
+		freq = ez8->cached_sysclk();
+		if(freq > 1000000) {
+			freq /= 1000000;
+			suffix = "MHz";	
+		} else if(freq > 1000) {
+			freq /= 1000;
+			suffix = "kHz";
+		} else {
+			suffix = "Hz";
+		}
+
+		printf("ESTIMATED FREQUENCY:         %.*g%s\n", 
+		    sf, freq, suffix);
 	}
 
 	return;
@@ -663,6 +677,10 @@ void alter_memory(void)
 		}
 
 	} while(1);
+
+	if(!i) {
+		return;
+	}
 
 	switch(mem) {
 	case 'P':
@@ -1728,7 +1746,7 @@ int command_loop(void)
 			} else if(toupper(*buff) == 'Y') {
 				try {
 					ez8->reset_link();
-					ez8->rd_dbgrev();
+					ez8->rd_revid();
 				} catch(char *err) {
 					fprintf(stderr, "%s\n", err);
 				}
