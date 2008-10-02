@@ -1,4 +1,4 @@
-/* $Id: tclmon.cpp,v 1.2 2005/10/20 18:39:37 jnekl Exp $
+/* $Id: tclmon.cpp,v 1.3 2008/10/02 17:47:54 jnekl Exp $
  *
  * This implements the tcl api.
  */
@@ -353,7 +353,35 @@ int dbg_cmd(ClientData clientData,
 			return TCL_ERROR;
 		}
 
-		/* write register */
+		/* write memory */
+		((ez8ocd *)ez8)->wr_mem(addr, data, size);
+		break;
+	}
+	case dbg_prog_mem: {
+		int status, addr, size;
+		uint8_t *data;
+
+		if(objc != 3) {
+			Tcl_WrongNumArgs(interp, 1, objv, "address data");
+			return TCL_ERROR;
+		}
+		/* get address */
+		status = Tcl_GetIntFromObj(interp, objv[1], &addr);
+		if(status != TCL_OK) {
+			return status;
+		}
+		if(addr >= 0x10000 || addr < 0) {
+			Tcl_SetResult(interp, "Invalid address", NULL);
+			return TCL_ERROR;
+		}
+		/* get data */
+		data = Tcl_GetByteArrayFromObj(objv[2], &size);
+		if(addr+size > 0x10000) {
+			Tcl_SetResult(interp, "Invalid size", NULL);
+			return TCL_ERROR;
+		}
+
+		/* program memory */
 		ez8->wr_mem(addr, data, size);
 		break;
 	}
@@ -471,6 +499,8 @@ int Tcl_AppInit(Tcl_Interp *interp)
 	    (void *)dbg_rd_mem, NULL);
         Tcl_CreateObjCommand(interp, "dbg_wr_mem", tcl_cmd, 
 	    (void *)dbg_wr_mem, NULL);
+        Tcl_CreateObjCommand(interp, "dbg_prog_mem", tcl_cmd, 
+	    (void *)dbg_prog_mem, NULL);
         Tcl_CreateObjCommand(interp, "dbg_rd_crc", tcl_cmd, 
 	    (void *)dbg_rd_crc, NULL);
         Tcl_CreateObjCommand(interp, "dbg_rd_testmode", tcl_cmd, 
