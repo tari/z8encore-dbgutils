@@ -1,6 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004 Zilog, Inc.
  *
- * $Id: flashutil.cpp,v 1.3 2004/12/01 01:26:49 jnekl Exp $
+ * $Id: flashutil.cpp,v 1.4 2008/10/02 18:49:07 jnekl Exp $
  *
  * Z8 Encore Flash programming utility.
  */
@@ -56,6 +56,7 @@ static int multipass = 0;
 static int info = 0;
 static int erase = 0;
 static int zero_fill = 0;
+static int crc_size = -1;
 static int verbose = 0;
 static char *savefilename = NULL;
 static char *programfilename = NULL;
@@ -83,8 +84,8 @@ char *serialport_selection[] =
 int baudrate_selection[] = { 115200, 57600, 38400, 0 };
 int xtal_selection[] = { 20000000, 18432000, 1000000, 0 };
 
-static ez8dbg _dbg;
-static ez8dbg *dbg = &_dbg;
+ez8dbg _dbg;
+ez8dbg *dbg = &_dbg;
 
 /**************************************************************/
 
@@ -95,6 +96,7 @@ printf("Usage: %s [OPTION]... [FILE]\n", progname);
 printf( "Utility to program Z8 Encore! flash devices.\n\n");
 printf("  -h               show this help\n");
 printf("  -i               display information about device\n");
+printf("    -r SIZE        calculate CRC on SIZE bytes of memory\n");
 printf("  -m               multipass mode\n");
 printf("  -n ADDR=NUMBER   serialize part at ADDR, starting with NUMBER\n");
 printf("  -e               erase device\n");
@@ -131,7 +133,7 @@ int setup(int argc, char **argv)
 		progname = s+1;
 	}
 	
-	while((c = getopt(argc, argv, "hiemn:p:b:c:s:t:zv")) != EOF) {
+	while((c = getopt(argc, argv, "hiemn:p:b:c:s:t:zr:v")) != EOF) {
 		switch(c) {
 		case '?':
 			printf("Try '%s -h' for more information.\n", argv[0]);
@@ -223,6 +225,21 @@ int setup(int argc, char **argv)
 			break;
 		case 'z':
 			zero_fill = 1;
+			break;
+		case 'r':
+			crc_size = strtol(optarg, &last, 0);
+			if(!last || last == optarg) {
+				fprintf(stderr, 
+				    "Invalid size \'%s\'\n", optarg);
+				exit(EXIT_FAILURE);
+			}
+			if(*last == 'k' || *last == 'K') {
+				crc_size *= 1024;
+			} else if(*last) {
+				fprintf(stderr, 
+				    "Invalid size \'%s\'\n", optarg);
+				exit(EXIT_FAILURE);
+			}
 			break;
 		case 'v':
 			verbose++;
@@ -334,7 +351,12 @@ int display_info(void)
 	printf("Reading device info ... ");
 	fflush(stdout);
 	try {
-		crc = dbg->rd_crc();
+		if(crc_size >= 0) {
+			dbg->rd_mem(0, buff, crc_size);
+			crc = crc_ccitt(0, buff, crc_size);
+		} else {
+			crc = dbg->rd_crc();
+		}
 	} catch(char *err) {
 		printf("fail\n");
 		fprintf(stderr, "%s", err);
@@ -427,11 +449,13 @@ int save_file(const char *filename)
 
 	buff_crc = crc_ccitt(0x0000, buff, mem_size);
 	if(buff_crc != crc) {
-		printf("fail\n");
+		printf("fail, crc calculated = %04x, device = %04x\n",
+		    buff_crc, crc);
 		fprintf(stderr, "ERROR: CRC check failed.\n");
-		return -1;
+		//return -1;
+	} else {
+		printf("ok, crc: %04x\n", crc);
 	}
-	printf("ok, crc: %04x\n", crc);
 
 	printf("Saving file ... ");
 	fflush(stdout);
@@ -488,7 +512,17 @@ int erase_device(void)
 	fflush(stdout);
 
 	try {
-		dbg->flash_mass_erase();
+#ifdef	TEST
+		if(erase) {
+			extern void prepare_for_erase(void);
+			prepare_for_erase();
+			dbg->mass_erase(1);
+			dbg->reset_chip();
+			mem_size = dbg->memory_size();
+			blank_crc = crc_ccitt(0x0000, blank, mem_size);
+		} else
+#endif
+			dbg->flash_mass_erase();
 	} catch(char *err) {
 		printf("fail\n");
 		fprintf(stderr, "%s", err);
@@ -680,8 +714,12 @@ int multipassmode(void)
 
 		try {
 			if(!connected) {
-				connect();
-				connected = 1;
+				if(connect()) {
+					connected = 0;
+					continue;
+				} else {
+					connected = 1;
+				}
 			} else {
 				dbg->reset_link();
 			}
