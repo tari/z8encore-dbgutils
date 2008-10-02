@@ -1269,6 +1269,9 @@ Read memory.
 @item dbg_wr_mem
 Write memory.
 
+@item dbg_prog_mem
+Program memory.
+
 @item dbg_rd_crc
 Read memory crc.
 
@@ -1288,6 +1291,7 @@ Read memory crc.
 * dbg_wr_regs::                Write registers
 * dbg_rd_mem::                 Read memory
 * dbg_wr_mem::                 Write memory
+* dbg_prog_mem::               Program memory
 * dbg_rd_crc::                 Read memory crc
 @end menu
 
@@ -1443,13 +1447,26 @@ puts $hexstr
 
 The @samp{dbg_wr_mem} command will write a block of data to memory at
 the specified address. The data to be written should be specified as a
+binary byte array. 
+
+@example
+set addr 0x0800
+set data [ binary format "a*" "test string" ]
+dbg_wr_mem $addr $data
+@end example
+
+@node dbg_prog_mem
+@subsection dbg_prog_mem address data
+
+The @samp{dbg_prog_mem} command will write a block of data to memory at
+the specified address. The data to be written should be specified as a
 binary byte array. This routine will erase and program the appropriate
 memory locations to complete the write operation.
 
 @example
 set addr 0x0800
 set data [ binary format "a*" "test string" ]
-dbg_wr_mem $addr $data
+dbg_prog_mem $addr $data
 @end example
 
 @node dbg_rd_crc
