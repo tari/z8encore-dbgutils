@@ -22,4 +22,12 @@ which produces native windoze executables).
 Mingw and msys can be obtained from
 	http://www.mingw.org
 
+A port of the gnu readline library for windoze can be found at
+	http://gnuwin32.sourceforge.net
+
+TCL source can be found at
+	http://www.tcl.tk
+A windows binary distribution of ActiveTcl 
+  can be found from ActiveState at
+	http://www.activestate.com/Products/ActiveTcl/
 
