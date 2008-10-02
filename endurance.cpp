@@ -1,6 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004 Zilog, Inc.
  *
- * $Id: endurance.cpp,v 1.2 2004/12/01 01:26:49 jnekl Exp $
+ * $Id: endurance.cpp,v 1.3 2008/10/02 17:55:21 jnekl Exp $
  *
  * Utility to do flash endurance testing.
  */
@@ -12,6 +12,7 @@
 #include	<ctype.h>
 #include	<string.h>
 #include	<assert.h>
+#include	<sys/wait.h>
 #include	<readline/readline.h>
 #include	"xmalloc.h"
 
@@ -59,24 +60,17 @@ uint8_t *buff, *blank;
 uint16_t buff_crc, blank_crc;
 int mem_size = 0;
 int max_mem = 0;
-int raw_commands = 0;
 
 int max_error_retry = 3;
-int loop_repeat_count = 4;
-int erase_verify_repeat_count = 64;
-int program_verify_repeat_count = 512;
+int maximum_cycles = 4;
+int verify_repeat_count = 100;
+int cycle = 0;
 
+char *mailto;
+char *state_filename = "cycle";
+FILE *state_file;
 volatile int done;
-
-struct {
-	long comm_errors;
-	long erase;
-	long erase_verify;
-	long erase_verify_pass;
-	long program;
-	long program_verify;
-	long program_verify_pass;
-} stats;
+int errors = 0;
 
 /**************************************************************/
 
@@ -103,19 +97,21 @@ printf("%s - build %s\n", progname, build);
 printf("Usage: %s [OPTION]... [FILE]\n", progname);
 printf( "Utility to test endurance of Z8 Encore! flash devices.\n\n");
 printf("  -h               show this help\n");
-printf("  -r               show raw ocd commands\n");
 printf("  -i               display information about device\n");
 printf("  -p SERIALPORT    specify serialport to use (default: %s)\n",
-    DEFAULT_SERIALPORT);
+    serialport);
 printf("  -b BAUDRATE      use baudrate (default: %d)\n", 
-    DEFAULT_BAUDRATE);
+    baudrate);
 printf("  -t MTU           maximum transmission unit (default %d)\n", 
-    DEFAULT_MTU);
+    mtu);
 printf("  -c FREQUENCY     clock frequency in hertz (default: %d)\n", 
-    DEFAULT_XTAL);
-printf("  -l COUNT         loop count\n");
-printf("  -v COUNT         program verify count\n");
-printf("  -e COUNT         erase verify count\n");
+    xtal);
+printf("  -l COUNT         maximum cycle count\n");
+printf("  -v COUNT         verify repeat count (default: %d)\n", 
+    verify_repeat_count);
+printf("  -m ADDRS         email results to ADDRS\n");
+printf("  -s FILE          save state in FILE (default: %s)\n", 
+    state_filename);
 printf("\n");
 
 return;
@@ -131,9 +127,11 @@ void signal_handler(int signal)
 	}
 	done++;
 
-	if(done > 5) {
-		fprintf(stderr, "alright already, exiting...\n");
+	if(done > 3) {
+		fprintf(stderr, "exiting...\n");
 		exit(EXIT_FAILURE);
+	} else if(done > 2) {
+		fprintf(stderr, "abort before finished ?\n");
 	}
 }
 
@@ -174,7 +172,7 @@ int setup(int argc, char **argv)
 		progname = s+1;
 	}
 
-	while((c = getopt(argc, argv, "hrp:b:c:t:l:v:e:")) != EOF) {
+	while((c = getopt(argc, argv, "hp:b:c:t:l:v:m:s:")) != EOF) {
 		switch(c) {
 		case '?':
 			printf("Try '%s -h' for more information.\n", argv[0]);
@@ -183,9 +181,6 @@ int setup(int argc, char **argv)
 		case 'h':
 			help();
 			exit(EXIT_SUCCESS);
-			break;
-		case 'r':
-			raw_commands = 1;
 			break;
 		case 'p':
 			serialport = optarg;
@@ -237,7 +232,7 @@ int setup(int argc, char **argv)
 		case 'l': {
 			char *end;
 
-			loop_repeat_count = strtol(optarg, &end, 0);
+			maximum_cycles = strtol(optarg, &end, 0);
 			if(end && *end) {
 				fprintf(stderr, "Invalid number %s\n",
 				    optarg);
@@ -248,7 +243,7 @@ int setup(int argc, char **argv)
 		case 'v': {
 			char *end;
 
-			program_verify_repeat_count = strtol(optarg, &end, 0);
+			verify_repeat_count = strtol(optarg, &end, 0);
 			if(end && *end) {
 				fprintf(stderr, "Invalid number %s\n",
 				    optarg);
@@ -256,17 +251,20 @@ int setup(int argc, char **argv)
 			}
 			break;
 		}
-		case 'e': {
-			char *end;
-
-			erase_verify_repeat_count = strtol(optarg, &end, 0);
-			if(end && *end) {
-				fprintf(stderr, "Invalid number %s\n",
-				    optarg);
+		case 'm':
+			mailto = strdup(optarg);
+			if(!mailto) {
+				perror("strdup");
 				exit(EXIT_FAILURE);
 			}
 			break;
-		}
+		case 's':
+			state_filename = strdup(optarg);
+			if(!state_filename) {
+				perror("strdup");
+				exit(EXIT_FAILURE);
+			}
+			break;
 		default:
 			abort();
 		}
@@ -281,9 +279,6 @@ int setup(int argc, char **argv)
 
 	dbg->mtu = mtu;
 	dbg->set_sysclk(xtal);
-	if(raw_commands) {
-		dbg->log_proto = stdout;
-	}
 
 	buff = (uint8_t *)xmalloc(MEMSIZE);
 	blank = (uint8_t *)xmalloc(MEMSIZE);
@@ -292,6 +287,60 @@ int setup(int argc, char **argv)
 	memset(blank, 0xff, MEMSIZE);
 
 	return 0;
+}
+
+/**************************************************************/
+
+void mail_status(char *subject, char *message)
+{
+	int pid;
+	int fd[2];
+	int status;
+	FILE *stream;
+
+	// if noone to send to, return
+	if(!mailto) {
+		return;
+	}
+
+	// create pipe
+	if(pipe(fd)) {
+		perror("pipe");
+		return;
+	}
+
+	// fork child process
+	pid = fork();
+	if(pid < 0) {
+		perror("fork");
+		close(fd[0]);
+		close(fd[1]);
+		return;
+	} else if(!pid) {
+		// exec sendmail
+		close(fd[1]);
+		dup2(fd[0], STDIN_FILENO);
+		close(fd[0]);
+		execlp("sendmail", "sendmail", "-t", "-i", NULL);
+		perror("execlp");
+		exit(EXIT_FAILURE);
+	}
+	close(fd[0]);
+	stream = fdopen(fd[1], "w");
+
+	// generate message
+	fprintf(stream, "To: %s\n", mailto);
+	fprintf(stream, "Subject: cycle %d - %s\n\n", cycle, subject);
+	fprintf(stream, "cycle %d\n", cycle);
+	if(message) {
+		fprintf(stream, "%s\n", message);
+	}
+	fclose(stream);
+
+	// wait for sendmail to exit
+	waitpid(pid, &status, 0);
+
+	return;
 }
 
 /**************************************************************/
@@ -377,14 +426,12 @@ int configure(void)
 
 int erase_device(void)
 {
-	printf("Erasing device ... ");
-	fflush(stdout);
-
 	try {
 		dbg->flash_mass_erase();
 	} catch(char *err) {
-		printf("fail\n");
-		fprintf(stderr, "%s", err);
+		mail_status("error during mass erase", err);
+		fprintf(stderr, "cycle %d: error during mass erase: %s", 
+		    cycle, err);
 		return -1;
 	}
 
@@ -394,13 +441,12 @@ int erase_device(void)
 		try {
 			dbg->reset_chip();
 		} catch(char *err) {
-			printf("fail\n");
-			fprintf(stderr, "%s", err);
+			mail_status("error resetting chip", err);
+			fprintf(stderr, "cycle %d: error resetting chip: %s", 
+			    cycle, err);
 			return -1;
 		}
 	}
-
-	printf("ok\n");
 
 	return 0;
 }
@@ -411,32 +457,27 @@ int blank_check(void)
 {
 	int i;
 
-	printf("Blank check ");
-	fflush(stdout);
-
-	for(i=0; i<erase_verify_repeat_count; i++) {
+	for(i=0; i<verify_repeat_count; i++) {
 		uint16_t crc;
 
-		stats.erase_verify++;
 		try {
 			crc = dbg->rd_crc();
 		} catch(char *err) {
-			printf(" fail\n");
-			fprintf(stderr, "%s", err);
+			mail_status("error reading crc", err);
+			fprintf(stderr, "cycle %d: error reading crc: %s", 
+			    cycle, err);
 			return -1;
 		}
 
 		if(crc != blank_crc) {
-			printf("X");
-		} else {
-			printf(".");
-			stats.erase_verify_pass++;
+			errors++;
+			mail_status("blank check failed", "CRC mismatch");
+			fprintf(stderr, "cycle %d: blank check failed: %s", 
+			    cycle, "CRC mismatch");
+			return -1;
 		}
-		fflush(stdout);
 	}
 
-	printf(" ok\n");
-	
 	return 0;
 }
 
@@ -444,18 +485,16 @@ int blank_check(void)
 
 int program_device(void)
 {
-	printf("Programming device ... ");
-	fflush(stdout);
 	try {
 		dbg->wr_mem(0x0000, buff, 0x10000);
 	} catch(char *err) {
-		printf("fail\n");
-		fprintf(stderr, "%s", err);
+		errors++;
+		mail_status("programming failure", err);
+		fprintf(stderr, "cycle %d: programming failure: %s", 
+		    cycle, err);
 		return -1;
 	}
  
-	printf("ok\n");
-
 	return 0;
 }
 
@@ -465,33 +504,73 @@ int verify_device(void)
 {
 	int i;
 
-	printf("Verifying ");
-	fflush(stdout);
-
-	for(i=0; i<program_verify_repeat_count; i++) {
+	for(i=0; i<verify_repeat_count; i++) {
 		uint16_t crc;
 
-		stats.program_verify++;
 		try {
 			crc = dbg->rd_crc();
 		} catch(char *err) {
-			printf(" fail\n");
-			fprintf(stderr, "%s", err);
+			mail_status("error reading crc", err);
+			fprintf(stderr, "cycle %d: error reading crc: %s", 
+			    cycle, err);
 			return -1;
 		}
 
 		if(crc != buff_crc) {
-			printf("X");
-		} else {
-			printf(".");
-			stats.program_verify_pass++;
+			errors++;
+			mail_status("program verify failed", "CRC mismatch");
+			fprintf(stderr, "cycle %d: program verify failed: %s", 
+			    cycle, "CRC mismatch");
 		}
-		fflush(stdout);
 	}
 
-	printf(" ok\n");
-
 	return 0;
+}
+
+/**************************************************************/
+
+FILE *open_state(char *filename)
+{
+	FILE *file;
+	char *end;
+	char buff[16];
+
+	file = fopen(filename, "w+");
+	if(!file) {
+		perror("fopen");
+		exit(EXIT_FAILURE);
+	}
+	if(fgets(buff, sizeof(buff), file)) {
+		cycle = strtol(buff, &end, 0);
+	}
+
+	return file;
+}
+
+void save_state(FILE *file)
+{
+	if(fseek(file, 0, SEEK_SET)) {
+		perror("fseek");
+		return;
+	}
+	if(fprintf(file, "%d\n", cycle) < 0) {
+		perror("fprintf");
+		return;
+	}
+	if(fflush(file)) {
+		perror("fflush");
+		return;
+	}
+	if(fsync(fileno(file))) {
+		perror("fsync");
+		return;
+	}
+}
+
+void close_state(FILE *file)
+{
+	save_state(file);
+	fclose(file);
 }
 
 /**************************************************************/
@@ -504,16 +583,32 @@ int run(void)
 		return -1;
 	}
 
+	/* TODO: if mem_size unknown, will be zero. 
+	   Need to automatically determine memory size. 
+	   Can determine memory size by erasing and reading blank crc. */
 	blank_crc = crc_ccitt(0x0000, blank, mem_size);
 
 	err = 0;
 
-	while(loop_repeat_count > 0 && !done) {
+	mail_status("started", NULL);
 
+	while(!done && errors < 3 && 
+	      (maximum_cycles <= 0 || cycle < maximum_cycles)) {
+
+		// save state every 10 cycles, about every 60 seconds
+		if(!(cycle % 10)) {
+			save_state(state_file);
+		}
+
+		// report progress every 10000 cycles, about every 16 hours
+		if(cycle && !(cycle % 10000)) {
+			mail_status("running", NULL);
+		}
+
+		// if communication error, retry
 		if(err) {
 			int retry;
 	
-			stats.comm_errors++;
 			retry = max_error_retry;
 	
 			while(err && retry > 0) {
@@ -524,8 +619,13 @@ int run(void)
 					dbg->reset_chip();
 					err = 0;
 				} catch(char *err) {
-					fprintf(stderr, "%s", err);
+					mail_status("communication error", err);
+					fprintf(stderr, "cycle %d: %s", 
+					    cycle, err);
 				}
+			}
+			if(err) {
+				return -1;
 			}
 		}
 
@@ -533,19 +633,16 @@ int run(void)
 		if(err) {
 			continue;
 		}
-		stats.erase++;
 
 		err = blank_check();
 		if(err) {
 			continue;
 		}
 
-		switch(loop_repeat_count % 4) {
+		switch(cycle % 4) {
 		case 0:	{	/* checkerboard */
 			int addr;
 
-			printf("Generating checkerboard ... ");
-			fflush(stdout);
 			for(addr=0; addr<mem_size; addr++) {
 				if(addr & 1) {
 					buff[addr] = 0x55;
@@ -558,8 +655,6 @@ int run(void)
 		case 1: {	/* reverse checkerboard */
 			int addr;
 
-			printf("Generating reverse checkerboard ... ");
-			fflush(stdout);
 			for(addr=0; addr<mem_size; addr++) {
 				if(addr & 1) {
 					buff[addr] = 0xaa;
@@ -570,63 +665,38 @@ int run(void)
 			break;
 		}
 		case 2: {	/* zeros */
-			printf("Generating zeros ... ");
-			fflush(stdout);
 			memset(buff, 0x00, MEMSIZE);
 			break;
 		}
 		case 3: {	/* random data */
 			int addr;
 
-			printf("Generating random data ... ");
-			fflush(stdout);
 			for(addr=0; addr<mem_size; addr++) {
-				buff[addr] = random() & 0xff;
+				buff[addr] = random();
 			}
 			break;
 		}
 		}
 		buff[0] = 0xff;
 		buff_crc = crc_ccitt(0x0000, buff, mem_size);
-		printf("ok\n");
 
 		err = program_device();
 		if(err) {
 			continue;
 		}
-		stats.program++;
 
 		err = verify_device();
 		if(err) {
 			continue;
 		}
 
-		loop_repeat_count--;
+		cycle++;
+		errors = 0;
 	}
 
-	printf("Cleaning up ... (erasing device before exit)\n");
 	erase_device();
 
 	return 0;
-}
-
-/**************************************************************/
-
-void print_stats(void)
-{
-	printf("\n");
-	printf("summary\n");
-	printf("----------------\n");
-	printf("    erase = %ld\n", stats.erase);
-	printf("        erase_verify      = %ld\n", stats.erase_verify);
-	printf("        erase_verify_pass = %ld\n", stats.erase_verify_pass);
-	printf("    program = %ld\n", stats.program);
-	printf("        program_verify    = %ld\n", stats.program_verify);
-	printf("        program_verify    = %ld\n", stats.program_verify_pass);
-	printf("    comm_errors = %ld\n", stats.comm_errors);
-	printf("\n");
-
-	return;
 }
 
 /**************************************************************/
@@ -635,17 +705,18 @@ int main(int argc, char **argv)
 {
 	int err;
 
+	printf("%s - build %s\n", banner, build);
+
 	catch_signals();
 	err = setup(argc, argv);
 	if(err) {
 		return EXIT_FAILURE;
 	}
 
-	printf("%s - build %s\n", banner, build);
-
+	state_file = open_state(state_filename);
 	err = run();
-	print_stats();
-
+	close_state(state_file);
+	mail_status("finished", NULL);
 	if(err) {
 		return EXIT_FAILURE;
 	}
