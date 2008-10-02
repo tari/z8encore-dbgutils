@@ -1,6 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004 Zilog, Inc.
  *
- * $Id: crcgen.c,v 1.2 2004/12/01 01:26:49 jnekl Exp $
+ * $Id: crcgen.c,v 1.3 2008/10/02 17:54:06 jnekl Exp $
  *
  * This program will generate the CRC of an intel hexfile
  * that is returned by the Z8 Encore on-chip debugger.
@@ -21,6 +21,7 @@
 #define	PROGNAME	"crcgen"
 int memsize = 64 * 1024;
 int zero_fill = 0;
+int debug = 0;
 
 extern const char *build;
 const char *progname;
@@ -36,7 +37,8 @@ printf(
 "  -h               show this help\n"
 "  -s MEMSIZE       specify memory size\n"
 "  -o OUTPUT        write results to FILE\n"
-"  -z               fill with 00 instead of FF\n\n");
+"  -z               fill with 00 instead of FF\n"
+"  -d               debug\n\n");
 printf(
 "This utility will return the CRC of an intel hexfile.\n\n"
 "The CRC polynomial used is x^16+x^12+x^5+1 (CRC-CCITT). The data is\n"
@@ -63,7 +65,7 @@ int setup(int argc, char **argv)
 		progname = s+1;
 	}
 
-	while((c = getopt(argc, argv, "hs:o:z")) != EOF) {
+	while((c = getopt(argc, argv, "hs:o:zd")) != EOF) {
 		switch(c) {
 		case '?':
 			printf("Try '%s -h' for more information.\n", PROGNAME);
@@ -90,11 +92,6 @@ int setup(int argc, char **argv)
 				    tail);
 				return -1;
 			}
-			if(memsize > 64*1024) {
-				fprintf(stderr, "%s: size too big\n", 
-				    PROGNAME);
-				return -1;
-			}
 			break;
 		case 'o':
 			if(!freopen(optarg, "wb", stdout)) {
@@ -104,6 +101,9 @@ int setup(int argc, char **argv)
 			break;
 		case 'z':
 			zero_fill = 1;
+			break;
+		case 'd':
+			debug = 1;
 			break;
 		}
 	}
@@ -131,13 +131,25 @@ int main(int argc, char **argv)
 		return EXIT_FAILURE;
 	}
 
-	buff = (uint8_t *)xmalloc(0x10000 * sizeof(uint8_t));
+	buff = (uint8_t *)xmalloc(memsize * sizeof(uint8_t));
 
 	for(i=optind; i<argc; i++) {
 		memset(buff, zero_fill ? 0x00 : 0xff, memsize);
 		err = rd_hexfile(buff, memsize, argv[i]);
 		if(err) {
 			continue;
+		}
+		if(debug) {
+			int i;
+			crc = 0;
+			printf("%d:%04x\n", 0, ~crc & 0xffff);
+			for(i=0; i<memsize; i++) {
+				crc = crc_ccitt(crc, &buff[i], 1);
+				printf("%d:%02x:%04x\n", 
+				    i+1, buff[i], ~crc & 0xffff);
+			}
+			printf("inverted -> %04x\n", crc);
+				
 		}
 		crc = crc_ccitt(0x0000, buff, memsize);
 		printf("%s: %04x\n", argv[i], crc);
