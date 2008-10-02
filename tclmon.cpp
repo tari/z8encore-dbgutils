@@ -1,4 +1,4 @@
-/* $Id: tclmon.cpp,v 1.3 2008/10/02 17:47:54 jnekl Exp $
+/* $Id: tclmon.cpp,v 1.4 2008/10/02 18:49:28 jnekl Exp $
  *
  * This implements the tcl api.
  */
@@ -399,21 +399,26 @@ int dbg_cmd(ClientData clientData,
 		break;
 	}
 	case dbg_rd_testmode: {
-		extern uint8_t rd_testmode(void);
-		Tcl_Obj *obj;
-		uint8_t testmode;
-
 		if(objc != 1) {
 			Tcl_WrongNumArgs(interp, 1, objv, NULL);
 			return TCL_ERROR;
 		}
-		testmode = rd_testmode();
-		obj = Tcl_NewIntObj(testmode);
-		Tcl_SetObjResult(interp, obj);
+		#ifdef TEST
+		{
+			extern uint8_t rd_testmode(void);
+			Tcl_Obj *obj;
+			uint8_t testmode;
+
+			testmode = rd_testmode();
+			obj = Tcl_NewIntObj(testmode);
+			Tcl_SetObjResult(interp, obj);
+		}
 		break;
+		#else
+		return TCL_ERROR;
+		#endif
 	}
 	case dbg_wr_testmode: {
-		extern void wr_testmode(uint8_t data);
 		int testmode, status;
 
 		if(objc != 2) {
@@ -428,8 +433,15 @@ int dbg_cmd(ClientData clientData,
 			Tcl_SetResult(interp, "Invalid value", NULL);
 			return TCL_ERROR;
 		}
-		wr_testmode(testmode);
+		#ifdef TEST
+		{
+			extern void wr_testmode(uint8_t data);
+			wr_testmode(testmode);
+		}
 		break;
+		#else
+		return TCL_ERROR;
+		#endif
 	}
 	default:
 		printf("Command %s not implemented\n", 
