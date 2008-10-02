@@ -20,7 +20,7 @@ CPPFLAGS += -Wall
 CPPFLAGS += -g
 
 # optimization
-#CPPFLAGS += -O2
+CPPFLAGS += -O2
 
 # strip symbols
 #LDFLAGS += -s
@@ -61,7 +61,7 @@ endif
 libport.a: getdelim.o getline.o
 	$(AR) -r $@ $^
 
-libocd.a: $(LIBOBJS) libport.a
+libocd.a: $(LIBOBJS) 
 	$(AR) -r $@ $^
 
 libocd.so: $(LIBOBJS) libport.a
@@ -69,20 +69,16 @@ libocd.so: $(LIBOBJS) libport.a
 
 version.o: $(OBJS) $(LIBOBJS) flashutil.o crcgen.o
 
-# zilog test facilities
-ifeq "$(wildcard test.cpp)" "test.cpp"
-OBJS += test.o psi.o 
-ifeq "$(wildcard param.cpp)" "param.cpp" 
-OBJS += param.o
-test.o: CXXFLAGS += -DPARAM
-endif
-monitor.o: CXXFLAGS += -DTEST
-setup.o: CXXFLAGS += -DTEST
-endif
-
-
 ifdef COMSPEC
-  LIBS += -lreadline -lws2_32 -liberty
+  TCL = /c/Tcl
+  CPPFLAGS += -I$(TCL)/include
+  LDFLAGS += -L$(TCL)/lib
+
+  GNUWIN32 = /c/Program\ Files/GnuWin32
+  CPPFLAGS += -I$(GNUWIN32)/include
+  LDFLAGS += -L$(GNUWIN32)/lib
+  LIBS += -lreadline 
+  LIBS += -lws2_32 -liberty
   LIBS += -ltcl84
 else
   OSTYPE:=$(shell uname)
@@ -112,17 +108,8 @@ crcgen: crcgen.o version.o hexfile.o crc.o
 gencrctable: gencrctable.o
 	$(LD) $(LDFLAGS) -o$@ $^
 
-endurance: endurance.o version.o libocd.a libport.a 
-	$(CXX) $(LDFLAGS) -o$@ $^ $(LIBS)
-
 md5: md5c.o mddriver.o
 	$(LD) $(LDFLAGS) -o$@ $^
-
-ramtest: ramtest.o version.o libocd.a libport.a progress.o
-	$(CXX) $(LDFLAGS) -o$@ $^ $(LIBS)
-
-flashtool: flashtool.o version.o libocd.a libport.a 
-	$(CXX) $(LDFLAGS) -o$@ $^ $(LIBS)
 
 #################################################################
 
