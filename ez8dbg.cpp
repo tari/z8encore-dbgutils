@@ -1,6 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004 Zilog, Inc.
  *
- * $Id: ez8dbg.cpp,v 1.5 2005/10/20 18:39:37 jnekl Exp $
+ * $Id: ez8dbg.cpp,v 1.6 2008/10/02 17:56:28 jnekl Exp $
  *
  * This implements the debugger api. It makes calls to the
  * lower level ez8ocd to do all its work.
@@ -234,42 +234,9 @@ uint8_t ez8dbg::cached_memsize(void)
 
 int ez8dbg::memory_size(void)
 {
-	int size;
+	int size = 0;
 
 	switch(cached_revid() & 0x7fff) {
-	case 0x0124: 	
-	case 0x0128: 	
-	case 0x012A: 	
-	case 0x012E: 	
-	case 0x012F: 	
-	case 0x0130: 	
-		switch(cached_memsize() & 0x07) {
-		case 0x00:
-			size = 0x0400;
-			break;
-		case 0x01:
-			size = 0x0800;
-			break;
-		case 0x02:
-			size = 0x1000;
-			break;
-		case 0x03:
-			size = 0x2000;
-			break;
-		case 0x04:
-			size = 0x4000;
-			break;
-		case 0x05:
-			size = 0x8000;
-			break;
-		case 0x06:
-		case 0x07:
-			size = 0x10000;
-			break;
-		default:
-			abort();
-		}
-		break;
 	case 0x0100:
 	case 0x0110:
 	case 0x0120:
@@ -278,30 +245,126 @@ int ez8dbg::memory_size(void)
 	case 0x0123:
 	case 0x0125:
 	case 0x0126:
+	case 0x0127:
+	case 0x012B:
+	case 0x012C:
+	case 0x012D: 	
 		switch(cached_memsize() & 0x07) {
-		case 0x00:
+		case 0x00:	// 2k
 			size = 0x0800;
 			break;
-		case 0x01:
+		case 0x01:	// 4k
 			size = 0x1000;
 			break;
-		case 0x02:
+		case 0x02:	// 8k
 			size = 0x2000;
 			break;
-		case 0x03:
+		case 0x03:	// 16k
 			size = 0x4000;
 			break;
-		case 0x04:
+		case 0x04:	// 24k
 			size = 0x6000;
 			break;
-		case 0x05:
+		case 0x05:	// 32k
+			size = 0x8000;
+			break;
+		case 0x06:	// 48k
+			size = 0xc000;
+			break;
+		case 0x07:	// 64k
+			size = 0x10000;
+			break;
+		default:
+			abort();
+		}
+		break;
+	case 0x0124: 	
+	case 0x0128: 	
+	case 0x012A: 	
+	case 0x012E: 	
+	case 0x012F: 	
+		switch(cached_memsize() & 0x07) {
+		case 0x00:	// 1k
+			size = 0x0400;
+			break;
+		case 0x01:	// 2k
+			size = 0x0800;
+			break;
+		case 0x02:	// 4k
+			size = 0x1000;
+			break;
+		case 0x03:	// 8k 
+			size = 0x2000;
+			break;
+		case 0x04:	// 16k
+			size = 0x4000;
+			break;
+		case 0x05:	// 32k
 			size = 0x8000;
 			break;
 		case 0x06:
-			size = 0xc000;
-			break;
-		case 0x07:
+		case 0x07:	// 64k
 			size = 0x10000;
+			break;
+		default:
+			abort();
+		}
+		break;
+	case 0x0130: 	
+		switch(cached_memsize() & 0x07) {
+		case 0x00:	// 1k
+			size = 0x0400;
+			break;
+		case 0x01:	// 2k
+			size = 0x0800;
+			break;
+		case 0x02:	// 4k
+			size = 0x1000;
+			break;
+		case 0x03:	// 8k 
+			size = 0x2000;
+			break;
+		case 0x04:	// 16k
+			size = 0x4000;
+			break;
+		case 0x05:	// 32k
+			size = 0x8000;
+			break;
+		case 0x06:	// 64k
+			size = 0x10000;
+			break;
+		case 0x07:	// 12k
+			size = 0x03000;
+			break;
+		default:
+			abort();
+		}
+		break;
+	case 0x0131: 	
+		switch(cached_memsize() & 0x07) {
+		case 0x00:	// 1k
+			size = 0x0400;
+			break;
+		case 0x01:	// 2k
+			size = 0x0800;
+			break;
+		case 0x02:	// 4k
+			size = 0x1000;
+			break;
+		case 0x03:	// 8k 
+			size = 0x2000;
+			break;
+		case 0x04:	// 16k
+			size = 0x4000;
+			break;
+		case 0x05:	// 32k
+			size = 0x8000;
+			break;
+		case 0x06:	// 64k
+			size = 0x10000;
+			break;
+		case 0x07:	// 24k
+			size = 0x06000;
 			break;
 		default:
 			abort();
@@ -326,7 +389,7 @@ uint16_t ez8dbg::cached_memcrc(void)
 
 		/* get memory size */
 		size = memory_size();
-		if(!size) {
+		if(size) {
 			/* calculate crc on memory cache */
 			memcrc = crc_ccitt(0x0000, main_mem, size);
 			cache |= MEMCRC_CACHED;
@@ -377,11 +440,12 @@ uint16_t ez8dbg::rd_reload(void)
 	case 0x012A:
 	case 0x012B:
 	case 0x012E:
+	case 0x0130:
+	default:
 		rld = 0x0000;
 		break;
 	case 0x0126:
 	case 0x012D:
-	default:
 		rld = ez8ocd::rd_reload();
 		break;
 	}
