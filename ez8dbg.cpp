@@ -1,6 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004 Zilog, Inc.
  *
- * $Id: ez8dbg.cpp,v 1.6 2008/10/02 17:56:28 jnekl Exp $
+ * $Id: ez8dbg.cpp,v 1.7 2009/01/22 15:04:04 jnekl Exp $
  *
  * This implements the debugger api. It makes calls to the
  * lower level ez8ocd to do all its work.
@@ -709,7 +709,6 @@ void ez8dbg::run_to(uint16_t addr)
 void ez8dbg::run_clks(uint16_t clks)
 {
 	uint16_t cntr;
-	uint8_t ctl;
 
 	if(!state(state_stopped)) {
 		strncpy(err_msg, "Cannot run for duration of clocks\n"
@@ -747,7 +746,7 @@ void ez8dbg::run_clks(uint16_t clks)
 	cache &= ~(PC_CACHED | CRC_CACHED);
 	cache |= DBGCTL_CACHED;
 
-	wr_dbgctl(ctl);
+	wr_dbgctl(dbgctl);
 
 	return;
 }
