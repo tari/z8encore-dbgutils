@@ -1,6 +1,6 @@
 /* Copyright (C) 2002, 2003, 2004 Zilog, Inc.
  *
- * $Id: serialport.cpp,v 1.6 2005/10/20 18:39:37 jnekl Exp $
+ * $Id: serialport.cpp,v 1.7 2009/01/22 15:03:16 jnekl Exp $
  *
  * This is a universial serial port api. It will work on
  * both unix and windows systems.
@@ -465,7 +465,7 @@ void serialport::configure(void)
 	#ifdef CMSPAR
 	case odd:
 		cfg.c_cflag |= (PARENB | PARODD);
-		cfg.c_cfag &= ~(CMSPAR);
+		cfg.c_cflag &= ~(CMSPAR);
 		break;
 	case even:
 		cfg.c_cflag |= (PARENB);
@@ -476,7 +476,7 @@ void serialport::configure(void)
 		break;
 	case space:
 		cfg.c_cflag |= (PARENB | CMSPAR);
-		cfg.c_cflags &= ~(PARODD);
+		cfg.c_cflag &= ~(PARODD);
 	case none:
 		cfg.c_cflag &= ~(PARENB | PARODD | CMSPAR);
 		break;
