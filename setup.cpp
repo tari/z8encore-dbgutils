@@ -351,15 +351,7 @@ void parse_options(int argc, char **argv)
 	const struct baudvalue *b;
 	char *s;
 
-	progname = *argv;
-	s = strrchr(progname, '/');
-	if(s) {
-		progname = s+1;
-	}
-	s = strrchr(progname, '\\');
-	if(s) {
-		progname = s+1;
-	}
+	progname = argv[0];
 
 	while((c = getopt(argc, argv, "hldDTp:b:t:c:snm:vS:")) != EOF) {
 		switch(c) {

@@ -11,7 +11,7 @@
 #include	<string.h>
 #include	<inttypes.h>
 #include	<assert.h>
-#include	<tcl.h>
+#include	<tcl/tcl.h>
 #include	"ez8dbg.h"
 #include	"xmalloc.h"
 #include	"hexfile.h"
@@ -35,7 +35,7 @@ int dbg_cmd(ClientData clientData,
 	int objc,
 	Tcl_Obj *CONST objv[])
 {
-	switch((int)clientData) {
+	switch((intptr_t)clientData) {
 	case dbg_null:
 		abort();
 		break;

@@ -123,15 +123,7 @@ int setup(int argc, char **argv)
 	char *last, *ptr, *s;
 	double clock;
 
-	progname = *argv;
-	s = strrchr(progname, '/');
-	if(s) {
-		progname = s+1;
-	}
-	s = strrchr(progname, '\\');
-	if(s) {
-		progname = s+1;
-	}
+	progname = argv[0];
 	
 	while((c = getopt(argc, argv, "hiemn:p:b:c:s:t:zr:v")) != EOF) {
 		switch(c) {

@@ -82,7 +82,7 @@ ifdef COMSPEC
   LIBS += -ltcl84
 else
   OSTYPE:=$(shell uname)
-  LIBS += -ltcl8.4
+  LIBS += -ltcl8.6
   ifeq "$(findstring Sun,$(OSTYPE))" "Sun"
     LIBS += -lresolv -lreadline -ltermcap -lsocket -lnsl
   else
